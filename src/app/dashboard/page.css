@@ -212,8 +212,13 @@
 .tutor-direct-card {
   background: #fffdf5;
   border: 1px solid var(--line);
-  padding: 18px;
+  padding: 16px;
   border-left: 3px solid var(--green);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .tutor-card-label {
@@ -222,22 +227,24 @@
   letter-spacing: 1.1px;
   color: var(--green);
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .tutor-card-inner {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
 .tutor-card-avatar {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   overflow: hidden;
-  border: 1px solid var(--green);
+  border: 1.5px solid var(--green);
   flex-shrink: 0;
 }
 
@@ -248,29 +255,52 @@
   display: block;
 }
 
+.tutor-card-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
 .tutor-card-meta strong {
   display: block;
   font-family: Georgia, Times New Roman, serif;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--ink);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tutor-card-meta small {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--muted);
+  line-height: 1.3;
 }
 
 .tutor-contact-btn {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   text-align: center;
   background: #eef5e6;
   border: 1px solid #d4e5c4;
   color: var(--green-dark);
-  padding: 8px 12px;
-  font-size: 11px;
+  padding: 9px 12px;
+  font-size: 11.5px;
   font-weight: 700;
-  border-radius: 2px;
+  border-radius: 3px;
+  text-decoration: none;
+  cursor: pointer;
   transition: all 0.16s ease;
+}
+
+.tutor-contact-btn svg {
+  flex-shrink: 0;
 }
 
 .tutor-contact-btn:hover {
@@ -1656,7 +1686,92 @@
 
   .tutor-direct-card {
     display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
     margin-top: 4px;
+    padding: 14px 16px;
+    background: #fcfaf2;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    border-radius: 4px;
+  }
+
+  .tutor-card-label {
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    color: var(--green);
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .tutor-card-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .tutor-card-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1.5px solid var(--green);
+    flex-shrink: 0;
+  }
+
+  .tutor-card-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tutor-card-meta strong {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  .tutor-card-meta small {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+
+  .tutor-contact-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 4px;
+    text-align: center;
+    text-decoration: none;
+    background: #eef5e6;
+    border: 1px solid #d4e5c4;
+    color: var(--green-dark);
+    transition: all 0.16s ease;
+  }
+
+  .tutor-contact-btn svg {
+    flex-shrink: 0;
+  }
+
+  .tutor-contact-btn:hover {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green-dark);
   }
 
   .sidebar-mobile-footer {
