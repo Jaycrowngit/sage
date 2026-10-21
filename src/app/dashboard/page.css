@@ -1649,3 +1649,69 @@
   color: var(--muted);
   margin: 0;
 }
+
+/* ========================================================= */
+/* COMING SOON PRESENTATION STYLES                           */
+/* ========================================================= */
+.coming-soon-card {
+  background: #fffdf5;
+  border: 1px solid var(--line);
+  padding: 48px 36px;
+  text-align: center;
+  max-width: 680px;
+  margin: 20px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.coming-soon-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #eef2ea;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.coming-soon-icon.live {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.coming-soon-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 2px;
+  background: #fbf6e3;
+  color: #8c7219;
+}
+
+.coming-soon-card h3 {
+  font-family: Georgia, Times New Roman, serif;
+  font-size: 22px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.coming-soon-card p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 520px;
+  margin: 0;
+}
+
+.nav-badge.soon {
+  background: #fbf6e3;
+  color: #8c7219;
+  font-size: 8.5px;
+  padding: 2px 5px;
+}

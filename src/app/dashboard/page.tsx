@@ -462,7 +462,7 @@ export default function StudentDashboardPage() {
         ) : null}
 
         <button
-          className={`button ${isLive ? "button-primary" : "button-primary"} full-width`}
+          className="button button-primary full-width"
           onClick={() => handleStartExam(examId)}
           disabled={examStarting}
           style={{ marginTop: "12px", background: isLive ? "#b91c1c" : "var(--green)" }}
@@ -540,7 +540,7 @@ export default function StudentDashboardPage() {
               {totalEnrolled > 0 && <span className="nav-badge">{totalEnrolled}</span>}
             </button>
 
-            {/* SEPARATE TAB 1: PRACTICE TESTS ONLY */}
+            {/* SEPARATE TAB 1: PRACTICE TESTS */}
             <button
               className={`nav-item ${activeTab === "practice" ? "active" : ""}`}
               onClick={() => {
@@ -553,10 +553,14 @@ export default function StudentDashboardPage() {
                 <polyline points="12 6 12 12 16 14" />
               </svg>
               <span>Practice Tests</span>
-              {practiceExams.length > 0 && <span className="nav-badge">{practiceExams.length}</span>}
+              {practiceExams.length > 0 ? (
+                <span className="nav-badge">{practiceExams.length}</span>
+              ) : (
+                <span className="nav-badge soon">Soon</span>
+              )}
             </button>
 
-            {/* SEPARATE TAB 2: LIVE EXAMINATIONS ONLY */}
+            {/* SEPARATE TAB 2: LIVE EXAMINATIONS */}
             <button
               className={`nav-item ${activeTab === "live" ? "active" : ""}`}
               onClick={() => {
@@ -568,10 +572,12 @@ export default function StudentDashboardPage() {
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
               <span>Live Examinations</span>
-              {liveExams.length > 0 && (
+              {liveExams.length > 0 ? (
                 <span className="nav-badge pulse" style={{ background: "#dc2626", color: "#fff" }}>
                   {liveExams.length}
                 </span>
+              ) : (
+                <span className="nav-badge soon">Soon</span>
               )}
             </button>
 
@@ -603,6 +609,7 @@ export default function StudentDashboardPage() {
                 <polyline points="2 12 12 17 22 12" />
               </svg>
               <span>Study Resources</span>
+              <span className="nav-badge soon">Soon</span>
             </button>
           </nav>
 
@@ -821,22 +828,20 @@ export default function StudentDashboardPage() {
                   <h1>Welcome back, {user.name || "Student"}!</h1>
                   <p>
                     You are currently enrolled in <strong>{totalEnrolled} active subject{totalEnrolled !== 1 ? "s" : ""}</strong>.
-                    {results.length > 0
-                      ? ` You have completed ${results.length} test${results.length !== 1 ? "s" : ""} with an average score of ${averageScore}%.`
-                      : " Start a self-paced practice test to track your progress!"}
+                    Review your curriculum notes and track your ongoing preparation.
                   </p>
                   <div className="welcome-actions">
                     <button
                       className="button button-primary"
-                      onClick={() => setActiveTab("practice")}
+                      onClick={() => setActiveTab("courses")}
                     >
-                      Start Practice Drills
+                      View My Subjects &amp; Syllabus
                     </button>
                     <button
                       className="button-outline"
-                      onClick={() => setActiveTab("live")}
+                      onClick={() => setActiveTab("practice")}
                     >
-                      View Live Exams
+                      Check Practice Drills
                     </button>
                   </div>
                 </div>
@@ -849,28 +854,6 @@ export default function StudentDashboardPage() {
                   <small>— Mr. Joseph O. Giwa</small>
                 </div>
               </div>
-
-              {/* Live Challenge Banner (if live exams are available) */}
-              {liveExams.length > 0 && (
-                <div className="live-alert-card">
-                  <div className="live-alert-info">
-                    <h4>
-                      <span className="live-indicator-dot" />
-                      Live Examination Available: {liveExams[0].title}
-                    </h4>
-                    <p>
-                      Official scheduled challenge ({liveExams[0].duration_minutes} minutes) · Real-time scoring and national leaderboard.
-                    </p>
-                  </div>
-                  <button
-                    className="button"
-                    style={{ background: "#b91c1c", color: "#fff", whiteSpace: "nowrap" }}
-                    onClick={() => setActiveTab("live")}
-                  >
-                    Go to Live Exam →
-                  </button>
-                </div>
-              )}
 
               {/* KPI Metrics */}
               <div className="metrics-grid">
@@ -920,35 +903,33 @@ export default function StudentDashboardPage() {
                     </svg>
                   </div>
                   <div className="metric-data">
-                    <span className="metric-value">{passedCount}/{results.length || 0}</span>
-                    <span className="metric-title">Passed Tests</span>
+                    <span className="metric-value">Active</span>
+                    <span className="metric-title">Session Status</span>
                   </div>
                 </div>
               </div>
 
               {/* Two Column Layout */}
               <div className="overview-split-row">
-                {/* Left: Quick Practice Drills ONLY */}
+                {/* Left: Practice Drills Status */}
                 <div className="overview-card">
                   <div className="overview-card-header">
                     <div>
-                      <h3>Ready Practice Drills</h3>
+                      <h3>Practice Tests &amp; Drills</h3>
                       <p>Self-paced test questions with immediate answers</p>
                     </div>
                     <button
                       className="view-all-text-link"
                       onClick={() => setActiveTab("practice")}
                     >
-                      All Practice ({practiceExams.length}) →
+                      View →
                     </button>
                   </div>
 
                   <div className="exam-quick-list">
                     {loadingExams ? (
                       <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>Loading practice drills...</p>
-                    ) : practiceExams.length === 0 ? (
-                      <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>No practice drills available yet.</p>
-                    ) : (
+                    ) : practiceExams.length > 0 ? (
                       practiceExams.slice(0, 3).map((item) => {
                         const examId = item.id || item._id || "";
                         return (
@@ -970,6 +951,16 @@ export default function StudentDashboardPage() {
                           </div>
                         );
                       })
+                    ) : (
+                      <div style={{ padding: "24px 16px", textAlign: "center" }}>
+                        <span className="coming-soon-badge">Coming Soon</span>
+                        <h4 style={{ margin: "10px 0 6px", fontSize: "14px", color: "var(--ink)" }}>
+                          Practice Question Banks
+                        </h4>
+                        <p style={{ margin: 0, fontSize: "11.5px", color: "var(--muted)", lineHeight: 1.5 }}>
+                          Self-paced diagnostic drills and test questions are currently being compiled by lead instructors.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -993,7 +984,11 @@ export default function StudentDashboardPage() {
                     {loadingResults ? (
                       <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>Loading results...</p>
                     ) : results.length === 0 ? (
-                      <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>No test results yet. Take a practice drill to get started!</p>
+                      <div style={{ padding: "24px 16px", textAlign: "center" }}>
+                        <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                          No test submissions yet. Records will be automatically displayed here upon completion.
+                        </p>
+                      </div>
                     ) : (
                       results.slice(0, 4).map((r) => {
                         const rId = String(r.id || r._id || Math.random());
@@ -1029,7 +1024,7 @@ export default function StudentDashboardPage() {
                   <span className="eyebrow">ACADEMIC CURRICULUM</span>
                   <h2>My Subjects &amp; Courses</h2>
                   <p>
-                    Browse available courses and enroll in your preferred subjects.
+                    Browse available courses and manage your enrolled subjects.
                   </p>
                 </div>
               </div>
@@ -1039,8 +1034,13 @@ export default function StudentDashboardPage() {
                   <p>Loading courses from server...</p>
                 </div>
               ) : courses.length === 0 ? (
-                <div className="empty-state-card">
-                  <p>No courses are available on the platform yet. Check back soon!</p>
+                <div className="coming-soon-card">
+                  <div className="coming-soon-icon">📚</div>
+                  <span className="coming-soon-badge">Coming Soon</span>
+                  <h3>Curriculum Being Updated</h3>
+                  <p>
+                    Course modules and syllabus structures are being populated by instructors. Please check back shortly.
+                  </p>
                 </div>
               ) : (
                 <div className="courses-grid">
@@ -1083,7 +1083,7 @@ export default function StudentDashboardPage() {
           )}
 
           {/* ========================================================= */}
-          {/* 3. PRACTICE TESTS TAB (PRACTICE ONLY)                      */}
+          {/* 3. PRACTICE TESTS TAB (COMING SOON)                        */}
           {/* ========================================================= */}
           {!activeExamSession && activeTab === "practice" && (
             <div className="dashboard-exams-pane">
@@ -1092,7 +1092,7 @@ export default function StudentDashboardPage() {
                   <span className="eyebrow">SELF-PACED DRILLS</span>
                   <h2>Practice Tests &amp; Diagnostic Drills</h2>
                   <p>
-                    Sharpen your subject mastery with untimed or timed self-paced question banks. Retake as often as you want to strengthen weaker areas.
+                    Sharpen your subject mastery with untimed or timed self-paced question banks.
                   </p>
                 </div>
               </div>
@@ -1101,20 +1101,31 @@ export default function StudentDashboardPage() {
                 <div className="empty-state-card">
                   <p>Loading practice tests...</p>
                 </div>
-              ) : practiceExams.length === 0 ? (
-                <div className="empty-state-card">
-                  <p>No practice tests have been published yet. Tutors are updating the question bank.</p>
-                </div>
-              ) : (
+              ) : practiceExams.length > 0 ? (
                 <div className="exams-grid">
                   {practiceExams.map((exam) => renderExamCard(exam, false))}
+                </div>
+              ) : (
+                <div className="coming-soon-card">
+                  <div className="coming-soon-icon">📝</div>
+                  <span className="coming-soon-badge">Coming Soon</span>
+                  <h3>Practice Tests &amp; Diagnostic Question Banks</h3>
+                  <p>
+                    Our lead tutors are currently compiling and verifying comprehensive practice question banks with automated instant marking, explanations, and progress metrics.
+                  </p>
+                  <button
+                    className="button button-primary"
+                    onClick={() => setActiveTab("courses")}
+                  >
+                    View My Subjects &amp; Syllabus →
+                  </button>
                 </div>
               )}
             </div>
           )}
 
           {/* ========================================================= */}
-          {/* 4. LIVE EXAMINATIONS TAB (LIVE ONLY)                       */}
+          {/* 4. LIVE EXAMINATIONS TAB (COMING SOON)                     */}
           {/* ========================================================= */}
           {!activeExamSession && activeTab === "live" && (
             <div className="dashboard-exams-pane">
@@ -1135,20 +1146,26 @@ export default function StudentDashboardPage() {
                 <div className="empty-state-card">
                   <p>Checking live exam schedule...</p>
                 </div>
-              ) : liveExams.length === 0 ? (
-                <div className="empty-state-card">
-                  <p>There are no live exams scheduled at this moment. Practice drills remain open anytime.</p>
-                  <button
-                    className="button button-primary"
-                    onClick={() => setActiveTab("practice")}
-                    style={{ marginTop: 12 }}
-                  >
-                    Go to Practice Tests
-                  </button>
-                </div>
-              ) : (
+              ) : liveExams.length > 0 ? (
                 <div className="exams-grid">
                   {liveExams.map((exam) => renderExamCard(exam, true))}
+                </div>
+              ) : (
+                <div className="coming-soon-card">
+                  <div className="coming-soon-icon live">🔴</div>
+                  <span className="coming-soon-badge" style={{ background: "#fef2f2", color: "#b91c1c" }}>
+                    Coming Soon
+                  </span>
+                  <h3>Live Scheduled CBT Examinations</h3>
+                  <p>
+                    Official timed examinations and national challenge competitions are scheduled periodically. Test dates, syllabus scopes, and entry windows will be announced here.
+                  </p>
+                  <button
+                    className="button button-primary"
+                    onClick={() => setActiveTab("courses")}
+                  >
+                    Prepare with Course Syllabus →
+                  </button>
                 </div>
               )}
             </div>
@@ -1174,13 +1191,18 @@ export default function StudentDashboardPage() {
                   <p>Loading your results...</p>
                 </div>
               ) : results.length === 0 ? (
-                <div className="empty-state-card">
-                  <p>You haven&apos;t completed any tests yet.</p>
+                <div className="coming-soon-card">
+                  <div className="coming-soon-icon">📊</div>
+                  <span className="coming-soon-badge">No Submissions Yet</span>
+                  <h3>Gradebook Ready</h3>
+                  <p>
+                    As soon as you participate in practice drills or scheduled examinations, your automated grades, performance analytics, and question breakdowns will appear here.
+                  </p>
                   <button
                     className="button button-primary"
-                    onClick={() => setActiveTab("practice")}
+                    onClick={() => setActiveTab("courses")}
                   >
-                    Take Your First Practice Test
+                    Explore My Subjects →
                   </button>
                 </div>
               ) : (
@@ -1234,7 +1256,7 @@ export default function StudentDashboardPage() {
           )}
 
           {/* ========================================================= */}
-          {/* 6. STUDY RESOURCES TAB                                     */}
+          {/* 6. STUDY RESOURCES TAB (COMING SOON)                       */}
           {/* ========================================================= */}
           {!activeExamSession && activeTab === "resources" && (
             <div className="dashboard-resources-pane">
@@ -1248,42 +1270,19 @@ export default function StudentDashboardPage() {
                 </div>
               </div>
 
-              <div className="resources-grid">
-                <article className="resource-card">
-                  <span className="resource-tag">Literature</span>
-                  <h3>Essential Literary Devices Handbook</h3>
-                  <p>
-                    Comprehensive definitions and exam examples of Metaphor, Metonymy, Synecdoche,
-                    Pathetic Fallacy, Soliloquy, Dramatic Irony, and Iambic Pentameter.
-                  </p>
-                  <div className="resource-footer">
-                    <span>Format: Quick Reference Guide</span>
-                  </div>
-                </article>
-
-                <article className="resource-card">
-                  <span className="resource-tag">Government</span>
-                  <h3>Constitutional Systems &amp; Political Frameworks</h3>
-                  <p>
-                    In-depth breakdown of Federal vs. Unitary governments, Separation of Powers,
-                    Rule of Law, Electoral Systems, and Historical Civic Developments.
-                  </p>
-                  <div className="resource-footer">
-                    <span>Format: Summary Notes</span>
-                  </div>
-                </article>
-
-                <article className="resource-card">
-                  <span className="resource-tag">English Language</span>
-                  <h3>Mastering Structural Essay Composition &amp; Syntax</h3>
-                  <p>
-                    Guide to advanced grammar rules, subject-verb agreement with compound
-                    connectors, avoiding dangling modifiers, and structuring persuasive essays.
-                  </p>
-                  <div className="resource-footer">
-                    <span>Format: Writing Guide</span>
-                  </div>
-                </article>
+              <div className="coming-soon-card">
+                <div className="coming-soon-icon">📚</div>
+                <span className="coming-soon-badge">Coming Soon</span>
+                <h3>High-Yield Study Guides &amp; Revision Notes</h3>
+                <p>
+                  Comprehensive notes, analytical frameworks, and exam revision guides prepared by lead tutor Mr. Joseph O. Giwa (covering Literature, Government, and English Language) are currently being finalized for publication.
+                </p>
+                <button
+                  className="button button-primary"
+                  onClick={() => setActiveTab("courses")}
+                >
+                  View Active Subjects &amp; Syllabus →
+                </button>
               </div>
             </div>
           )}
