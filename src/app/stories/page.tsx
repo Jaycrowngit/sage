@@ -333,7 +333,7 @@ export default function StoriesPage() {
                 Get started today
               </Link>
               <Link className="stories-secondary-link" href="/sessions">
-                View all sessions →
+                View all sessions
               </Link>
             </div>
           </div>

@@ -142,6 +142,7 @@ export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "courses" | "practice" | "live" | "results" | "resources" | "profile"
   >("overview");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Auth & loading states
   const [authChecked, setAuthChecked] = useState(false);
@@ -537,6 +538,26 @@ export default function StudentDashboardPage() {
       {/* Top Header */}
       <header className="dashboard-header">
         <div className="header-brand-wrap">
+          <button
+            type="button"
+            className="mobile-menu-toggle"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            )}
+          </button>
           <BrandLogo href="/" />
           <span className="header-badge">STUDENT PORTAL</span>
         </div>
@@ -556,7 +577,7 @@ export default function StudentDashboardPage() {
             </div>
             <div className="user-text-info">
               <span className="user-name">{user.name}</span>
-              <span className="user-role">Student Profile →</span>
+              <span className="user-role">Student Profile</span>
             </div>
           </div>
 
@@ -571,16 +592,50 @@ export default function StudentDashboardPage() {
         </div>
       </header>
 
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Main Container */}
       <div className="dashboard-body">
-        {/* Navigation Sidebar */}
-        <aside className="dashboard-sidebar">
+        {/* Navigation Sidebar Drawer */}
+        <aside className={`dashboard-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
+          {/* Mobile Drawer Header */}
+          <div className="sidebar-mobile-header">
+            <div className="sidebar-mobile-profile">
+              <div className="user-avatar-circle small">
+                {user.name ? user.name.charAt(0).toUpperCase() : "S"}
+              </div>
+              <div className="sidebar-mobile-user-info">
+                <span className="sidebar-mobile-name">{user.name || "Student"}</span>
+                <span className="sidebar-mobile-email">{user.email || ""}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="sidebar-close-btn"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
           <nav className="sidebar-nav">
             <button
               className={`nav-item ${activeTab === "overview" ? "active" : ""}`}
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("overview");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -598,6 +653,7 @@ export default function StudentDashboardPage() {
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("profile");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -612,6 +668,7 @@ export default function StudentDashboardPage() {
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("courses");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -628,6 +685,7 @@ export default function StudentDashboardPage() {
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("practice");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -648,6 +706,7 @@ export default function StudentDashboardPage() {
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("live");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -668,6 +727,7 @@ export default function StudentDashboardPage() {
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("results");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -683,6 +743,7 @@ export default function StudentDashboardPage() {
               onClick={() => {
                 setActiveExamSession(null);
                 setActiveTab("resources");
+                setMobileMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -721,6 +782,25 @@ export default function StudentDashboardPage() {
             >
               Ask Tutor a Question
             </a>
+          </div>
+
+          {/* Mobile Sign Out in Drawer */}
+          <div className="sidebar-mobile-footer">
+            <button
+              type="button"
+              className="sidebar-signout-btn"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Sign Out</span>
+            </button>
           </div>
         </aside>
 
@@ -814,7 +894,7 @@ export default function StudentDashboardPage() {
                     disabled={currentQuestionIndex === 0}
                     onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
                   >
-                    ← Previous
+                    Previous
                   </button>
 
                   <div className="exam-footer-right">
@@ -823,7 +903,7 @@ export default function StudentDashboardPage() {
                         className="exam-nav-btn primary"
                         onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
                       >
-                        Next Question →
+                        Next Question
                       </button>
                     ) : (
                       <button
@@ -923,7 +1003,7 @@ export default function StudentDashboardPage() {
                       className="button-outline"
                       onClick={() => setActiveTab("profile")}
                     >
-                      Manage Student Profile →
+                      Manage Student Profile
                     </button>
                   </div>
                 </div>
@@ -1004,7 +1084,7 @@ export default function StudentDashboardPage() {
                       className="view-all-text-link"
                       onClick={() => setActiveTab("practice")}
                     >
-                      View →
+                      View
                     </button>
                   </div>
 
@@ -1058,7 +1138,7 @@ export default function StudentDashboardPage() {
                       className="view-all-text-link"
                       onClick={() => setActiveTab("results")}
                     >
-                      View All →
+                      View All
                     </button>
                   </div>
 
@@ -1174,7 +1254,7 @@ export default function StudentDashboardPage() {
                       onClick={() => setActiveTab("courses")}
                       style={{ textDecoration: "underline" }}
                     >
-                      Browse courses to enroll →
+                      Browse courses to enroll
                     </button>
                   </p>
                 ) : (
@@ -1388,7 +1468,7 @@ export default function StudentDashboardPage() {
                     className="button button-primary"
                     onClick={() => setActiveTab("courses")}
                   >
-                    View My Subjects &amp; Syllabus →
+                    View My Subjects &amp; Syllabus
                   </button>
                 </div>
               )}
@@ -1435,7 +1515,7 @@ export default function StudentDashboardPage() {
                     className="button button-primary"
                     onClick={() => setActiveTab("courses")}
                   >
-                    Prepare with Course Syllabus →
+                    Prepare with Course Syllabus
                   </button>
                 </div>
               )}
@@ -1473,7 +1553,7 @@ export default function StudentDashboardPage() {
                     className="button button-primary"
                     onClick={() => setActiveTab("courses")}
                   >
-                    Explore My Subjects →
+                    Explore My Subjects
                   </button>
                 </div>
               ) : (
@@ -1552,7 +1632,7 @@ export default function StudentDashboardPage() {
                   className="button button-primary"
                   onClick={() => setActiveTab("courses")}
                 >
-                  View Active Subjects &amp; Syllabus →
+                  View Active Subjects &amp; Syllabus
                 </button>
               </div>
             </div>
