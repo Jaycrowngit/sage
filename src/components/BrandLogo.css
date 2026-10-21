@@ -1,0 +1,89 @@
+.brand {
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  display: inline-flex;
+}
+
+.brand-image {
+  object-fit: contain;
+  flex: none;
+  width: 70px;
+  height: 70px;
+}
+
+.brand-mark {
+  background: var(--green);
+  color: #fffdf5;
+  border-radius: 50%;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  font-family: Georgia,serif;
+  font-size: 24px;
+  font-style: italic;
+  line-height: 1;
+  display: grid;
+}
+
+.brand-name {
+  letter-spacing: -1.2px;
+  font-family: Georgia,Times New Roman,serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #173827;
+}
+
+.brand-descriptor {
+  color: #465c41;
+  letter-spacing: 1.2px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Footer & compact logo */
+.compact .brand-image {
+  width: 44px;
+  height: 44px;
+}
+
+.compact .brand-name {
+  color: #fffdf5;
+  font-size: 28px;
+}
+
+.compact .brand-descriptor {
+  color: #d9ed8a;
+  font-size: 8.5px;
+}
+
+@media (max-width:640px) {
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+  }
+
+  .brand-name {
+    font-size: 26px;
+  }
+
+  .brand-descriptor {
+    font-size: 8px;
+  }
+
+  .brand-image {
+    width: 42px;
+    height: 42px;
+  }
+
+  .compact .brand-image {
+    width: 38px;
+    height: 38px;
+  }
+
+  .compact .brand-name {
+    font-size: 24px;
+  }
+}

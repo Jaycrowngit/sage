@@ -1,0 +1,970 @@
+.home-page .section-wrap {
+  width: min(1180px,100% - 96px);
+  margin-inline: auto;
+}
+
+.home-page .contact-strip {
+  color: #e4e0d2;
+  background: var(--green-dark);
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 34px;
+  padding-inline: max(48px,50vw - 670px);
+  font-size: 9px;
+  display: flex;
+}
+
+.home-page .hero {
+  grid-template-columns: 1fr .95fr;
+  align-items: center;
+  min-height: 590px;
+  padding-top: 34px;
+  padding-bottom: 48px;
+  display: grid;
+  position: relative;
+}
+
+.home-page .hero-copy {
+  z-index: 1;
+  padding: 39px 0 20px;
+}
+
+.home-page .eyebrow {
+  color: var(--green-dark);
+  letter-spacing: 1.55px;
+  align-items: center;
+  gap: 9px;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+}
+
+.home-page .hero h1,
+.home-page .section-heading h2,
+.home-page .approach-copy h2,
+.home-page .closing-inner h2 {
+  letter-spacing: -1.8px;
+  margin: 24px 0 0;
+  font-family: Arial,Helvetica,sans-serif;
+  font-weight: 700;
+  line-height: 1.03;
+}
+
+.home-page .hero h1 {
+  max-width: 650px;
+  font-size: clamp(47px,5.2vw,72px);
+}
+
+.home-page .hero h1 span,
+.home-page .section-heading h2 em,
+.home-page .approach-copy h2 em,
+.home-page .closing-inner h2 em {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.home-page .hero-description {
+  max-width: 470px;
+  color: var(--muted);
+  margin: 25px 0 0;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.home-page .hero-actions {
+  align-items: center;
+  gap: 25px;
+  margin-top: 31px;
+  display: flex;
+}
+
+.home-page .button {
+  justify-content: center;
+  align-items: center;
+  gap: 25px;
+  min-height: 48px;
+  padding: 0 19px;
+  font-size: 11px;
+  font-weight: 700;
+  transition: background .16s,transform .16s;
+  display: inline-flex;
+}
+
+.home-page .button:hover {
+  transform: translateY(-2px);
+}
+
+.home-page .button-primary {
+  background: var(--green);
+  color: var(--white);
+}
+
+.home-page .button-primary:hover {
+  background: var(--green-dark);
+}
+
+.home-page .text-link {
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+}
+
+.home-page .approach-link {
+  color: var(--green);
+  margin-top: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+}
+
+.home-page .hero-note {
+  color: #5b6057;
+  align-items: center;
+  gap: 12px;
+  margin-top: 35px;
+  font-family: Arial,Helvetica,sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  display: flex;
+}
+
+.home-page .hero-art {
+  height: 455px;
+  margin-left: 0;
+  position: relative;
+}
+
+.home-page .founder-hero-portrait {
+  background: var(--green-dark);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.home-page .founder-hero-portrait:after {
+  content: "";
+  background: linear-gradient(90deg, #10382536 0%, #10382508 50%, #10382520 100%),
+    linear-gradient(0deg, #103825a8 0%, transparent 44%);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.home-page .founder-hero-image {
+  object-fit: cover;
+  object-position: center 22%;
+  animation: founder-background-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes founder-background-drift {
+  from {
+    transform: scale(1.03) translate3d(-.5%, 0, 0);
+  }
+
+  to {
+    transform: scale(1.12) translate3d(.5%, -1%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page .founder-hero-image {
+    animation: none;
+  }
+}
+
+.home-page .founder-portrait-caption {
+  color: #fffdf5;
+  flex-direction: column;
+  gap: 7px;
+  padding: 20px 22px;
+  display: flex;
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  z-index: 1;
+}
+
+.home-page .founder-portrait-caption span {
+  color: #d9ed8a;
+  letter-spacing: 1.2px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.home-page .founder-portrait-caption strong {
+  max-width: 34ch;
+  font-family: Georgia,Times New Roman,serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.home-page .principles {
+  background: #fffdf5;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(40px,8vw,125px);
+  min-height: 105px;
+  padding: 24px;
+  display: flex;
+}
+
+.home-page .principles>div {
+  color: #333333;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+}
+
+.home-page .principle-number {
+  color: var(--green);
+  font-family: Georgia,Times New Roman,serif;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.home-page .sessions-section {
+  padding-top: 84px;
+  padding-bottom: 92px;
+}
+
+.home-page .section-heading {
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  display: flex;
+}
+
+.home-page .section-heading h2,
+.home-page .approach-copy h2,
+.home-page .exam-pathways-copy h2,
+.home-page .closing-inner h2 {
+  margin-top: 19px;
+  font-size: clamp(34px,4vw,50px);
+}
+
+.home-page .section-heading>p {
+  max-width: 430px;
+  color: var(--muted);
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.home-page .session-grid {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 18px;
+  display: grid;
+}
+
+.home-page .session-card {
+  background: #fffdf5;
+  flex-direction: column;
+  min-height: 285px;
+  padding: 25px 27px 23px;
+  transition: transform .18s,box-shadow .18s;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-page .session-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 35px #164a3514;
+}
+
+.home-page .session-card.sage {
+  background: #e7edcf;
+}
+
+.home-page .session-card.cream {
+  background: #f7f4e6;
+}
+
+.home-page .session-card.blue {
+  background: #e8efe1;
+}
+
+.home-page .session-card.exam-preparation-card {
+  color: var(--white);
+  grid-column: 1/-1;
+  min-height: 260px;
+  background: var(--green-dark);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  column-gap: 24px;
+}
+
+.home-page .exam-card-image {
+  object-fit: cover;
+  object-position: center 48%;
+}
+
+.home-page .exam-preparation-card:before {
+  content: "";
+  background: linear-gradient(90deg, #103825ed 0%, #103825c9 45%, #10382545 100%);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.home-page .exam-preparation-card>*:not(.exam-card-image) {
+  z-index: 1;
+}
+
+.home-page .exam-preparation-card .session-card-top {
+  grid-column: 1/-1;
+}
+
+.home-page .exam-preparation-card .session-card-content {
+  margin-top: 15px;
+  padding-top: 0;
+}
+
+.home-page .exam-preparation-card h3 {
+  color: var(--white);
+  max-width: 490px;
+  font-family: Arial,Helvetica,sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.home-page .exam-preparation-card .session-card-content p,
+.home-page .exam-preparation-card .session-number,
+.home-page .exam-preparation-card .card-category {
+  color: #f1f3e7;
+}
+
+.home-page .exam-preparation-card .session-tags {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.home-page .exam-preparation-card .session-tags span {
+  color: var(--white);
+  border-color: #fffdf574;
+  background: #10382566;
+}
+
+.home-page .session-card-top {
+  justify-content: space-between;
+  align-items: center;
+  display: flex;
+}
+
+.home-page .session-number {
+  color: #66795d;
+  font-family: Georgia,Times New Roman,serif;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.home-page .session-card-content {
+  margin-top: auto;
+  padding-top: 29px;
+}
+
+.home-page .card-category {
+  color: #465c41;
+  letter-spacing: 1.15px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.home-page .session-card h3 {
+  letter-spacing: -.45px;
+  max-width: 340px;
+  margin: 10px 0 9px;
+  font-family: Arial,Helvetica,sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
+.home-page .session-card-content p {
+  color: #5b6057;
+  max-width: 285px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.home-page .session-tags {
+  gap: 7px;
+  margin-top: 17px;
+  display: flex;
+}
+
+.home-page .session-tags span {
+  color: #465c41;
+  border: 1px solid #164a352b;
+  border-radius: 2px;
+  padding: 6px 8px;
+  font-size: 8px;
+}
+
+.home-page .session-explore-link {
+  color: var(--green);
+  width: fit-content;
+  margin-top: 17px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.home-page .exam-preparation-card .session-explore-link {
+  color: #d9ed8a;
+}
+
+.home-page .all-sessions-link {
+  color: #164a35;
+  justify-content: center;
+  align-items: center;
+  gap: 13px;
+  margin-top: 28px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+}
+
+.home-page .approach-section {
+  color: var(--ink);
+  background: #f7f4e6;
+}
+
+.home-page .approach-inner {
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 75px;
+  padding-top: 82px;
+  padding-bottom: 82px;
+  display: grid;
+}
+
+.home-page .approach-visual {
+  min-height: 400px;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-page .study-support-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.home-page .approach-visual:after {
+  content: "";
+  background: linear-gradient(0deg, #103825c9, transparent 50%);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.home-page .approach-visual>span {
+  color: #fffdf5;
+  letter-spacing: 1.3px;
+  font-size: 9px;
+  font-weight: 700;
+  position: absolute;
+  left: 22px;
+  bottom: 21px;
+  z-index: 1;
+}
+
+.home-page .approach-copy {
+  padding: 5px 0;
+}
+
+.home-page .approach-copy h2 {
+  margin-top: 17px;
+}
+
+.home-page .approach-copy>p {
+  color: var(--muted);
+  max-width: 440px;
+  margin: 18px 0 25px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.home-page .learning-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-page .learning-steps li {
+  align-items: center;
+  gap: 15px;
+  padding: 13px 0;
+  display: flex;
+}
+
+.home-page .learning-steps li>span {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.home-page .learning-steps strong,
+.home-page .learning-steps small {
+  display: block;
+}
+
+.home-page .learning-steps strong {
+  font-size: 12px;
+}
+
+.home-page .learning-steps small {
+  color: var(--muted);
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+.home-page .exam-pathways {
+  grid-template-columns: 1fr .85fr;
+  align-items: center;
+  gap: 70px;
+  padding-top: 90px;
+  padding-bottom: 90px;
+  display: grid;
+}
+
+.home-page .exam-pathways-copy h2 {
+  margin-top: 17px;
+}
+
+.home-page .exam-pathways-copy>p {
+  color: var(--muted);
+  max-width: 440px;
+  margin: 17px 0 20px;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.home-page .exam-list {
+  gap: 8px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.home-page .exam-list span {
+  color: var(--green-dark);
+  background: #e7edcf;
+  padding: 8px 10px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.home-page .exam-pathways-image {
+  min-height: 370px;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-page .exam-pathways-image img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.home-page .exam-pathways-image:after {
+  content: "";
+  background: linear-gradient(0deg, #103825a6, transparent 60%);
+  position: absolute;
+  inset: 0;
+}
+
+.home-page .exam-pathways-image span {
+  color: #fffdf5;
+  letter-spacing: 1.2px;
+  font-size: 9px;
+  font-weight: 700;
+  position: absolute;
+  left: 20px;
+  bottom: 19px;
+  z-index: 1;
+}
+
+.home-page .closing-section {
+  text-align: center;
+  background: #edf0e7;
+  overflow: hidden;
+}
+
+.home-page .closing-inner {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 361px;
+  padding-top: 55px;
+  padding-bottom: 55px;
+  display: flex;
+  position: relative;
+}
+
+.home-page .closing-inner h2 {
+  z-index: 1;
+  margin: 18px 0 25px;
+  font-size: clamp(43px,5vw,62px);
+}
+
+.home-page .closing-decoration {
+  color: #164a3514;
+  pointer-events: none;
+  font-family: Georgia,serif;
+  font-size: 390px;
+  font-style: italic;
+  line-height: 1;
+  position: absolute;
+  bottom: -116px;
+  right: 38px;
+}
+
+@media (min-width:1500px) {
+  .home-page .hero {
+    min-height: 690px;
+  }
+}
+
+@media (max-width:900px) {
+  .home-page .section-wrap {
+    width: min(100% - 56px,700px);
+  }
+
+  .home-page .hero {
+    grid-template-columns: 1fr .9fr;
+    min-height: 510px;
+  }
+
+  .home-page .hero h1 {
+    font-size: clamp(42px,5.4vw,55px);
+  }
+
+  .home-page .hero-art {
+    height: 400px;
+  }
+
+  .home-page .hero-actions {
+    gap: 16px;
+  }
+
+  .home-page .hero-note {
+    margin-top: 28px;
+  }
+
+  .home-page .principles {
+    gap: 25px;
+  }
+
+  .home-page .principles>div {
+    gap: 8px;
+    font-size: 9px;
+  }
+
+  .home-page .approach-inner {
+    gap: 48px;
+  }
+
+  .home-page .approach-visual {
+    min-height: 350px;
+  }
+
+  .home-page .exam-pathways {
+    gap: 38px;
+  }
+
+  .home-page .exam-pathways-image {
+    min-height: 320px;
+  }
+
+}
+
+@media (max-width:640px) {
+  .home-page .section-wrap {
+    width: calc(100% - 40px);
+  }
+
+  .home-page .hero {
+    grid-template-columns: 1fr;
+    padding-top: 39px;
+    padding-bottom: 69px;
+  }
+
+  .home-page .hero-copy {
+    padding: 0;
+  }
+
+  .home-page .hero h1 {
+    letter-spacing: -1.8px;
+    margin-top: 20px;
+    font-size: clamp(41px,11vw,57px);
+  }
+
+  .home-page .hero-description {
+    max-width: 380px;
+    margin-top: 19px;
+    font-size: 13px;
+  }
+
+  .home-page .hero-actions {
+    flex-flow: wrap;
+    gap: 18px;
+    margin-top: 24px;
+  }
+
+  .home-page .button {
+    gap: 13px;
+    min-height: 45px;
+    padding-inline: 14px;
+    font-size: 10px;
+  }
+
+  .home-page .text-link {
+    font-size: 10px;
+  }
+
+  .home-page .hero-note {
+    margin-top: 27px;
+    font-size: 11px;
+  }
+
+  .home-page .hero-art {
+    height: 360px;
+    margin: 5px 0 0;
+  }
+
+  .home-page .founder-portrait-caption {
+    left: 3px;
+    bottom: 3px;
+    padding: 15px;
+  }
+
+  .home-page .founder-portrait-caption strong {
+    font-size: 19px;
+  }
+
+  .home-page .principles {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    min-height: auto;
+    padding: 23px 30px;
+  }
+
+  .home-page .principles>div {
+    font-size: 10px;
+  }
+
+  .home-page .sessions-section {
+    padding-top: 76px;
+    padding-bottom: 76px;
+  }
+
+  .home-page .section-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 27px;
+  }
+
+  .home-page .section-heading h2,
+  .home-page .approach-copy h2 {
+    letter-spacing: -2px;
+    font-size: 45px;
+  }
+
+  .home-page .section-heading>p {
+    max-width: 390px;
+    font-size: 11px;
+  }
+
+  .home-page .session-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .home-page .session-card {
+    min-height: 245px;
+    padding: 20px;
+  }
+
+  .home-page .session-card-content {
+    padding-top: 20px;
+  }
+
+  .home-page .session-card h3 {
+    font-size: 22px;
+  }
+
+  .home-page .session-card.exam-preparation-card {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 0;
+    min-height: 330px;
+  }
+
+  .home-page .exam-preparation-card .session-card-top {
+    grid-column: 1;
+  }
+
+  .home-page .exam-preparation-card .session-tags {
+    justify-content: flex-start;
+  }
+
+  .home-page .all-sessions-link {
+    justify-content: flex-start;
+    font-size: 10px;
+  }
+
+  .home-page .approach-inner {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding-top: 44px;
+    padding-bottom: 48px;
+  }
+
+  .home-page .approach-visual {
+    min-height: 260px;
+  }
+
+  .home-page .approach-copy>p {
+    font-size: 12px;
+  }
+
+  .home-page .exam-pathways {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding-top: 52px;
+    padding-bottom: 55px;
+  }
+
+  .home-page .exam-pathways-image {
+    min-height: 250px;
+  }
+
+  .home-page .exam-pathways-copy h2,
+  .home-page .approach-copy h2,
+  .home-page .section-heading h2 {
+    font-size: 35px;
+  }
+
+  .home-page .closing-inner {
+    min-height: 315px;
+    padding-top: 43px;
+    padding-bottom: 43px;
+  }
+
+  .home-page .closing-inner .eyebrow {
+    letter-spacing: 1px;
+    justify-content: center;
+    font-size: 7px;
+  }
+
+  .home-page .closing-inner h2 {
+    letter-spacing: -1.6px;
+    font-size: 35px;
+  }
+
+  .home-page .closing-decoration {
+    font-size: 280px;
+    bottom: -75px;
+    right: -28px;
+  }
+}
+
+
+/* Home Page Testimonials Section */
+.home-page .home-testimonials-section {
+  padding-top: 80px;
+  padding-bottom: 85px;
+  border-top: 1px solid var(--line);
+}
+
+.home-page .home-testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 36px;
+}
+
+.home-page .home-testimonial-card {
+  background: #fffdf5;
+  border: 1px solid var(--line);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.home-page .home-testimonial-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(16, 56, 37, 0.07);
+}
+
+.home-page .home-testimonial-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.home-page .home-testimonial-avatar {
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  overflow: hidden;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  position: relative;
+}
+
+.home-page .home-testimonial-meta h4 {
+  margin: 0;
+  font-family: Georgia, Times New Roman, serif;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.home-page .home-testimonial-meta span {
+  font-size: 11px;
+  color: var(--muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.home-page .home-testimonial-quote {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #3f443e;
+  font-style: italic;
+  margin: 0 0 18px;
+  flex-grow: 1;
+}
+
+.home-page .home-testimonial-badge {
+  background: #f1f6e2;
+  border: 1px solid #dbe6b8;
+  padding: 7px 11px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--green-dark);
+  border-radius: 2px;
+}
+
+.home-page .home-testimonials-footer {
+  text-align: center;
+  margin-top: 36px;
+}
+
+@media (max-width: 900px) {
+  .home-page .home-testimonials-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}

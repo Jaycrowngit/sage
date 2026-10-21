@@ -1,0 +1,11 @@
+.sessions-page .session-exams {
+  background: #fffdf5;
+  width: 100%;
+  padding: 52px max(48px,50vw - 540px) 62px;
+}
+
+@media (max-width:640px) {
+  .sessions-page .session-exams {
+    padding: 38px 20px 46px;
+  }
+}
