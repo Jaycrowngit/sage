@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { api, getAuthToken, removeAuthToken } from "@/lib/api";
 import "./page.css";
 
-// Types
+/* ------------------------------------------------------------------ */
+/*  Types aligned with the Laravel API response shapes                 */
+/* ------------------------------------------------------------------ */
+
 type UserProfile = {
   id?: number | string;
   name: string;
@@ -16,459 +19,263 @@ type UserProfile = {
   target?: string;
 };
 
-type CourseItem = {
-  id: number;
-  code: string;
+type ApiCourse = {
+  id: number | string;
+  _id?: string;
+  code?: string;
+  name?: string;
+  title?: string;
+  category?: string;
+  description?: string;
+};
+
+type ApiOption = {
+  id: number | string;
+  _id?: string;
+  option_letter?: string;
+  option_text: string;
+  question_id?: string | number;
+};
+
+type ApiQuestion = {
+  id: number | string;
+  _id?: string;
+  question_text: string;
+  explanation?: string;
+  marks?: number;
+  options: ApiOption[];
+};
+
+type ApiExam = {
+  id: number | string;
+  _id?: string;
   title: string;
-  category: string;
-  instructor: string;
-  progress: number;
-  enrolled: boolean;
-  topics: string[];
+  description?: string;
+  type: "practice" | "live";
+  duration_minutes: number;
+  total_marks?: number;
+  pass_percentage?: number;
+  is_published?: boolean;
+  is_live_active?: boolean;
+  questions_count?: number;
+  course?: ApiCourse | null;
+  course_id?: string | number;
+  user_attempt?: {
+    id: string | number;
+    status: string;
+    score: number;
+    percentage: number;
+    passed: boolean;
+    submitted_at: string;
+  } | null;
 };
 
-type ExamQuestion = {
-  id: number;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-  subject: string;
+type ApiExamSession = {
+  attempt_id: string | number;
+  exam: {
+    id: string | number;
+    title: string;
+    description?: string;
+    course?: string;
+    type: string;
+    duration_minutes: number;
+    pass_percentage: number;
+    total_questions: number;
+  };
+  session: {
+    started_at: string;
+    expires_at: string;
+    remaining_seconds: number;
+  };
+  questions: ApiQuestion[];
 };
 
-type ExamItem = {
-  id: number;
-  title: string;
-  subject: string;
-  durationMinutes: number;
-  totalQuestions: number;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  type: "practice" | "mock";
-  questions: ExamQuestion[];
+type ApiResult = {
+  id?: string | number;
+  _id?: string;
+  exam_id?: string | number;
+  score?: number;
+  total_possible?: number;
+  percentage?: number;
+  passed?: boolean;
+  status?: string;
+  started_at?: string;
+  submitted_at?: string;
+  exam?: {
+    id?: string | number;
+    title?: string;
+    type?: string;
+    course?: ApiCourse | null;
+  };
 };
 
-type ExamResult = {
-  id: string;
-  examTitle: string;
-  subject: string;
+type SubmitBreakdown = {
+  question_id: string | number;
+  question_text: string;
+  explanation?: string;
+  is_correct: boolean;
+  marks: number;
+  marks_awarded: number;
+  selected_option: { id: string | number; letter?: string; text: string } | null;
+  correct_option: { id: string | number; letter?: string; text: string } | null;
+};
+
+type SubmitResult = {
+  attempt_id: string | number;
+  exam_title: string;
   score: number;
-  totalQuestions: number;
+  total_possible: number;
   percentage: number;
   passed: boolean;
-  date: string;
-  answers: {
-    question: string;
-    selected: string;
-    correct: string;
-    isCorrect: boolean;
-    explanation: string;
-  }[];
+  correct_answers_count: number;
+  incorrect_answers_count: number;
+  unanswered_count: number;
+  breakdown: SubmitBreakdown[];
 };
 
-// Initial Demo Courses matching SAGE curriculum
-const initialCourses: CourseItem[] = [
-  {
-    id: 1,
-    code: "LIT-201",
-    title: "Literature & Text Analysis",
-    category: "Literature",
-    instructor: "Mr. Joseph O. Giwa",
-    progress: 72,
-    enrolled: true,
-    topics: [
-      "Critical Text Analysis & Unseen Poetry",
-      "Mastery of Literary Devices & Figures of Speech",
-      "Dramatic Irony, Soliloquies & Thematic Development",
-      "Character Motivation & Structural Essay Composition",
-    ],
-  },
-  {
-    id: 2,
-    code: "GOV-102",
-    title: "Government & Political Systems",
-    category: "Civics & Governance",
-    instructor: "Mr. Joseph O. Giwa",
-    progress: 85,
-    enrolled: true,
-    topics: [
-      "Forms of Government: Unitary, Federal & Confederal",
-      "Separation of Powers & Constitutional Checks",
-      "Historical Events, Timelines & Civic Evolution",
-      "Electoral Systems, Political Parties & Public Administration",
-    ],
-  },
-  {
-    id: 3,
-    code: "ENG-101",
-    title: "English Language & Advanced Composition",
-    category: "Language",
-    instructor: "Mr. Joseph O. Giwa",
-    progress: 60,
-    enrolled: true,
-    topics: [
-      "Complex Grammar, Syntax & Lexical Precision",
-      "Reading Comprehension & Contextual Inference",
-      "Persuasive, Expository & Argumentative Essays",
-      "Vocabulary Expansion & Standard Academic Writing",
-    ],
-  },
-  {
-    id: 4,
-    code: "CRS-101",
-    title: "Christian Religious Studies",
-    category: "Religious & Moral Thought",
-    instructor: "Mr. Joseph O. Giwa",
-    progress: 40,
-    enrolled: false,
-    topics: [
-      "Sovereignty of God & Early Biblical Narratives",
-      "The Prophetic Tradition & Moral Leadership",
-      "Pauline Epistles & Theological Doctrines",
-      "Faith, Ethics & Civic Responsibility in Practice",
-    ],
-  },
-];
-
-// Curated Practice Exams
-const sampleExams: ExamItem[] = [
-  {
-    id: 101,
-    title: "Literature: Text Analysis & Literary Devices Diagnostic",
-    subject: "Literature",
-    durationMinutes: 15,
-    totalQuestions: 5,
-    difficulty: "Intermediate",
-    type: "practice",
-    questions: [
-      {
-        id: 1,
-        question:
-          "In poetry analysis, when a writer attributes human emotions or qualities to inanimate nature, which literary device is primarily employed?",
-        options: ["Pathetic fallacy", "Onomatopoeia", "Synecdoche", "Metonymy"],
-        correctAnswer: 0,
-        explanation:
-          "Pathetic fallacy is a specific type of personification where inanimate nature or the weather is depicted as having human emotions or sympathy.",
-        subject: "Literature",
-      },
-      {
-        id: 2,
-        question:
-          "Read the phrase: 'The pen is mightier than the sword.' Which figure of speech is demonstrated here?",
-        options: ["Hyperbole", "Metonymy", "Oxymoron", "Apostrophe"],
-        correctAnswer: 1,
-        explanation:
-          "Metonymy replaces the name of a thing with something closely associated with it ('pen' for the written word/diplomacy, 'sword' for military force).",
-        subject: "Literature",
-      },
-      {
-        id: 3,
-        question:
-          "What is the term for a dramatic speech delivered by a character alone on stage, revealing their private inner thoughts?",
-        options: ["Dialogue", "Monologue", "Soliloquy", "Aside"],
-        correctAnswer: 2,
-        explanation:
-          "A soliloquy is a speech in drama where a character speaks their private thoughts while alone onstage.",
-        subject: "Literature",
-      },
-      {
-        id: 4,
-        question:
-          "When the audience or reader knows crucial information that a character in the story is unaware of, this is known as:",
-        options: [
-          "Verbal irony",
-          "Dramatic irony",
-          "Situational irony",
-          "Cosmic irony",
-        ],
-        correctAnswer: 1,
-        explanation:
-          "Dramatic irony occurs when the audience understands the true significance of a situation, but the characters do not.",
-        subject: "Literature",
-      },
-      {
-        id: 5,
-        question:
-          "Which meter consists of five metrical feet, each containing an unstressed syllable followed by a stressed syllable?",
-        options: [
-          "Trochaic octameter",
-          "Anapestic tetrameter",
-          "Iambic pentameter",
-          "Dactylic hexameter",
-        ],
-        correctAnswer: 2,
-        explanation:
-          "Iambic pentameter consists of five iambs (da-DUM da-DUM da-DUM da-DUM da-DUM), the classical meter used by Shakespeare and Milton.",
-        subject: "Literature",
-      },
-    ],
-  },
-  {
-    id: 102,
-    title: "Government: Political Systems, Constitutions & Civic Life",
-    subject: "Government",
-    durationMinutes: 15,
-    totalQuestions: 5,
-    difficulty: "Advanced",
-    type: "practice",
-    questions: [
-      {
-        id: 1,
-        question:
-          "Which constitutional system distributes sovereign power between a central national authority and autonomous regional component states?",
-        options: [
-          "Unitary system",
-          "Federal system",
-          "Confederal system",
-          "Monarchical system",
-        ],
-        correctAnswer: 1,
-        explanation:
-          "A federal system constitutionally divides and shares power between a central national government and regional or state subdivisions.",
-        subject: "Government",
-      },
-      {
-        id: 2,
-        question:
-          "The doctrine of 'Separation of Powers' was most prominently articulated by which political philosopher?",
-        options: [
-          "Thomas Hobbes",
-          "John Locke",
-          "Baron de Montesquieu",
-          "Jean-Jacques Rousseau",
-        ],
-        correctAnswer: 2,
-        explanation:
-          "Baron de Montesquieu outlined the separation of executive, legislative, and judicial branches in 'The Spirit of the Laws' (1748).",
-        subject: "Government",
-      },
-      {
-        id: 3,
-        question:
-          "What is the fundamental principle that every citizen and governing body is subject to the law without arbitrary privilege?",
-        options: [
-          "Rule of Law",
-          "Popular Sovereignty",
-          "Prerogative of Mercy",
-          "Judicial Precedent",
-        ],
-        correctAnswer: 0,
-        explanation:
-          "The Rule of Law asserts that laws apply equally to all people, leaders, and institutions, preventing arbitrary governance.",
-        subject: "Government",
-      },
-      {
-        id: 4,
-        question:
-          "In a parliamentary system of government, from where does the Executive branch derive its democratic mandate?",
-        options: [
-          "Direct popular presidential ballot",
-          "The military council",
-          "The Legislature (Parliament)",
-          "The Judiciary",
-        ],
-        correctAnswer: 2,
-        explanation:
-          "In a parliamentary system, the prime minister and cabinet are chosen from and held accountable to the legislative assembly.",
-        subject: "Government",
-      },
-      {
-        id: 5,
-        question:
-          "Which mechanism empowers citizens to vote directly on a specific proposed constitutional amendment or national law?",
-        options: ["Plebiscitary veto", "Referendum", "Filibuster", "Impeachment"],
-        correctAnswer: 1,
-        explanation:
-          "A referendum is a direct vote by the electorate on a specific legislative or constitutional proposal.",
-        subject: "Government",
-      },
-    ],
-  },
-  {
-    id: 103,
-    title: "English: Advanced Comprehension, Grammar & Syntax",
-    subject: "English Language",
-    durationMinutes: 12,
-    totalQuestions: 4,
-    difficulty: "Intermediate",
-    type: "practice",
-    questions: [
-      {
-        id: 1,
-        question:
-          "Identify the sentence that correctly maintains subject-verb agreement:",
-        options: [
-          "Neither the tutor nor the students was present in the hall.",
-          "Neither the tutor nor the students were present in the hall.",
-          "Neither the students nor the tutor were present in the hall.",
-          "Either of the books are acceptable for the exam.",
-        ],
-        correctAnswer: 1,
-        explanation:
-          "When subjects are joined by 'neither... nor', the verb agrees with the subject closest to it ('students were').",
-        subject: "English Language",
-      },
-      {
-        id: 2,
-        question:
-          "Choose the word that is most nearly opposite in meaning to 'EPHEMERAL':",
-        options: ["Transient", "Fleeting", "Perpetual", "Momentary"],
-        correctAnswer: 2,
-        explanation:
-          "'Ephemeral' means lasting a very short time. 'Perpetual' means lasting forever or indefinitely.",
-        subject: "English Language",
-      },
-      {
-        id: 3,
-        question:
-          "Which of the following contains a dangling modifier?",
-        options: [
-          "Having finished the essay, the laptop was shut down by Samuel.",
-          "Having finished the essay, Samuel shut down his laptop.",
-          "While Samuel wrote the essay, his laptop battery ran low.",
-          "Samuel shut down his laptop after completing the essay.",
-        ],
-        correctAnswer: 0,
-        explanation:
-          "In option A, 'Having finished the essay' grammatically modifies 'the laptop', suggesting the laptop wrote the essay.",
-        subject: "English Language",
-      },
-      {
-        id: 4,
-        question:
-          "Select the option containing the correct punctuation for a compound sentence joined by a conjunctive adverb:",
-        options: [
-          "She prepared thoroughly, however, the exam was demanding.",
-          "She prepared thoroughly; however, the exam was demanding.",
-          "She prepared thoroughly however; the exam was demanding.",
-          "She prepared thoroughly: however the exam was demanding.",
-        ],
-        correctAnswer: 1,
-        explanation:
-          "Two independent clauses joined by a conjunctive adverb ('however') must be separated by a semicolon before and a comma after.",
-        subject: "English Language",
-      },
-    ],
-  },
-];
-
-// Initial past test result
-const initialResults: ExamResult[] = [
-  {
-    id: "att-101",
-    examTitle: "Literature: Text Analysis & Literary Devices Diagnostic",
-    subject: "Literature",
-    score: 5,
-    totalQuestions: 5,
-    percentage: 100,
-    passed: true,
-    date: "2026-10-18",
-    answers: [
-      {
-        question: "Pathetic fallacy vs personification identification",
-        selected: "Pathetic fallacy",
-        correct: "Pathetic fallacy",
-        isCorrect: true,
-        explanation: "Correctly recognized attribution of emotional states to nature.",
-      },
-      {
-        question: "Metonymy identification in classical idioms",
-        selected: "Metonymy",
-        correct: "Metonymy",
-        isCorrect: true,
-        explanation: "Correctly identified pen and sword as metonyms.",
-      },
-      {
-        question: "Soliloquy definition in drama",
-        selected: "Soliloquy",
-        correct: "Soliloquy",
-        isCorrect: true,
-        explanation: "Correctly identified private thought speech onstage.",
-      },
-      {
-        question: "Dramatic irony mechanisms",
-        selected: "Dramatic irony",
-        correct: "Dramatic irony",
-        isCorrect: true,
-        explanation: "Correctly distinguished audience knowledge from character knowledge.",
-      },
-      {
-        question: "Iambic pentameter metrical scansion",
-        selected: "Iambic pentameter",
-        correct: "Iambic pentameter",
-        isCorrect: true,
-        explanation: "Correctly counted five iambic feet.",
-      },
-    ],
-  },
-];
+/* ------------------------------------------------------------------ */
+/*  Main Dashboard Component                                           */
+/* ------------------------------------------------------------------ */
 
 export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "courses" | "exams" | "results" | "resources"
   >("overview");
 
+  // Auth & loading states
+  const [authChecked, setAuthChecked] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
   // User state
   const [user, setUser] = useState<UserProfile>({
-    name: "Samuel Oluwabusayo Deborah",
-    email: "samuel.deb@sageacademic.com",
-    role: "Student",
-    target: "University of Ibadan (UI) · Political Science",
+    name: "",
+    email: "",
+    role: "student",
   });
 
-  const [isLiveSession, setIsLiveSession] = useState(false);
-  const [courses, setCourses] = useState<CourseItem[]>(initialCourses);
-  const [exams] = useState<ExamItem[]>(sampleExams);
-  const [results, setResults] = useState<ExamResult[]>(initialResults);
+  // Data states
+  const [courses, setCourses] = useState<ApiCourse[]>([]);
+  const [myCourseIds, setMyCourseIds] = useState<Set<string | number>>(new Set());
+  const [exams, setExams] = useState<ApiExam[]>([]);
+  const [results, setResults] = useState<ApiResult[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
 
   // Active Exam Taking Engine State
-  const [activeExam, setActiveExam] = useState<ExamItem | null>(null);
+  const [activeExamSession, setActiveExamSession] = useState<ApiExamSession | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string | number | null>>({});
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(0);
   const [examFinished, setExamFinished] = useState(false);
-  const [lastExamResult, setLastExamResult] = useState<ExamResult | null>(null);
-  const [reviewResult, setReviewResult] = useState<ExamResult | null>(null);
+  const [lastSubmitResult, setLastSubmitResult] = useState<SubmitResult | null>(null);
+  const [reviewResult, setReviewResult] = useState<SubmitResult | null>(null);
+  const [examStarting, setExamStarting] = useState(false);
+  const [examSubmitting, setExamSubmitting] = useState(false);
 
-  // Check auth & fetch user info
+  /* ---------------------------------------------------------------- */
+  /*  Auth guard — redirect to /login if no token                      */
+  /* ---------------------------------------------------------------- */
   useEffect(() => {
     const token = getAuthToken();
-    if (token) {
-      setIsLiveSession(true);
-      api
-        .getMe()
-        .then((res) => {
-          if (res?.data?.user) {
-            const u = res.data.user as { name?: string; email?: string; role?: string };
-            setUser((prev) => ({
-              ...prev,
-              name: u.name || prev.name,
-              email: u.email || prev.email,
-              role: u.role || prev.role,
-            }));
-          }
-        })
-        .catch(() => {
-          // Fallback to local profile
-        });
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
 
-      // Fetch live courses if available
-      api
-        .getMyCourses()
-        .then((res) => {
-          if (Array.isArray(res.data) && res.data.length > 0) {
-            // Can merge with local data
-          }
-        })
-        .catch(() => {});
+    // Verify token with the server
+    api
+      .getMe()
+      .then((res) => {
+        const u = res?.data?.user as Record<string, string> | undefined;
+        if (u) {
+          setUser({
+            id: u.id || u._id,
+            name: u.name || "",
+            email: u.email || "",
+            role: u.role || "student",
+            target: u.target,
+          });
+        }
+        setAuthChecked(true);
+        setPageLoading(false);
+      })
+      .catch(() => {
+        // Token invalid — clear and redirect
+        removeAuthToken();
+        window.location.href = "/login";
+      });
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /*  Fetch data once auth is confirmed                                */
+  /* ---------------------------------------------------------------- */
+  const fetchCourses = useCallback(async () => {
+    setLoadingCourses(true);
+    try {
+      const [allRes, myRes] = await Promise.all([
+        api.getCourses().catch(() => ({ data: [] as unknown[] })),
+        api.getMyCourses().catch(() => ({ data: [] as unknown[] })),
+      ]);
+
+      const allCourses = (Array.isArray(allRes.data) ? allRes.data : []) as ApiCourse[];
+      setCourses(allCourses);
+
+      const myCourses = (Array.isArray(myRes.data) ? myRes.data : []) as ApiCourse[];
+      const myIds = new Set<string | number>(
+        myCourses.map((c) => c.id || c._id || "")
+      );
+      setMyCourseIds(myIds);
+    } catch {
+      // silently handle
+    } finally {
+      setLoadingCourses(false);
     }
   }, []);
 
-  // Timer effect during active exam
+  const fetchExams = useCallback(async () => {
+    setLoadingExams(true);
+    try {
+      const res = await api.getExams();
+      const data = res?.data as { data?: ApiExam[] } | ApiExam[];
+      const examsList = Array.isArray(data) ? data : (data as { data?: ApiExam[] })?.data || [];
+      setExams(examsList);
+    } catch {
+      setExams([]);
+    } finally {
+      setLoadingExams(false);
+    }
+  }, []);
+
+  const fetchResults = useCallback(async () => {
+    setLoadingResults(true);
+    try {
+      const res = await api.getMyResults();
+      const data = res?.data as { data?: ApiResult[] } | ApiResult[];
+      const resultsList = Array.isArray(data) ? data : (data as { data?: ApiResult[] })?.data || [];
+      setResults(resultsList);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoadingResults(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!activeExam || examFinished) return;
+    if (!authChecked) return;
+    fetchCourses();
+    fetchExams();
+    fetchResults();
+  }, [authChecked, fetchCourses, fetchExams, fetchResults]);
+
+  /* ---------------------------------------------------------------- */
+  /*  Timer effect during active exam                                  */
+  /* ---------------------------------------------------------------- */
+  useEffect(() => {
+    if (!activeExamSession || examFinished) return;
 
     if (timeRemainingSeconds <= 0) {
-      handleCompleteExam();
+      handleSubmitExam();
       return;
     }
 
@@ -477,98 +284,151 @@ export default function StudentDashboardPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeExam, timeRemainingSeconds, examFinished]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExamSession, timeRemainingSeconds, examFinished]);
 
-  // Handle Logout
+  /* ---------------------------------------------------------------- */
+  /*  Handlers                                                         */
+  /* ---------------------------------------------------------------- */
+
   function handleLogout() {
+    api.logout().catch(() => {});
     removeAuthToken();
     window.location.href = "/login";
   }
 
-  // Toggle Course Enrollment
-  function handleToggleEnrollment(courseId: number) {
-    setCourses((prev) =>
-      prev.map((c) =>
-        c.id === courseId ? { ...c, enrolled: !c.enrolled } : c
-      )
-    );
+  async function handleStartExam(examId: string | number) {
+    setExamStarting(true);
+    try {
+      const res = await api.startExam(Number(examId));
+      const session = res.data as unknown as ApiExamSession;
+      setActiveExamSession(session);
+      setCurrentQuestionIndex(0);
+      setSelectedAnswers({});
+      setTimeRemainingSeconds(session.session.remaining_seconds);
+      setExamFinished(false);
+      setLastSubmitResult(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to start exam.";
+      alert(msg);
+    } finally {
+      setExamStarting(false);
+    }
   }
 
-  // Launch Exam Runner
-  function handleStartExam(exam: ExamItem) {
-    setActiveExam(exam);
-    setCurrentQuestionIndex(0);
-    setSelectedAnswers({});
-    setTimeRemainingSeconds(exam.durationMinutes * 60);
-    setExamFinished(false);
-    setLastExamResult(null);
-  }
-
-  // Select option in current question
-  function handleSelectOption(optionIndex: number) {
-    if (!activeExam || examFinished) return;
-    const currentQ = activeExam.questions[currentQuestionIndex];
+  function handleSelectOption(questionId: string | number, optionId: string | number) {
+    if (examFinished) return;
     setSelectedAnswers((prev) => ({
       ...prev,
-      [currentQ.id]: optionIndex,
+      [String(questionId)]: optionId,
     }));
   }
 
-  // Complete & Grade Exam
-  function handleCompleteExam() {
-    if (!activeExam) return;
+  async function handleSubmitExam() {
+    if (!activeExamSession || examSubmitting) return;
+    setExamSubmitting(true);
 
-    let correctCount = 0;
-    const breakdown = activeExam.questions.map((q) => {
-      const selectedIndex = selectedAnswers[q.id];
-      const isCorrect = selectedIndex === q.correctAnswer;
-      if (isCorrect) correctCount++;
-
+    const answers = activeExamSession.questions.map((q) => {
+      const qId = q.id || (q as Record<string, unknown>)._id;
       return {
-        question: q.question,
-        selected: selectedIndex !== undefined ? q.options[selectedIndex] : "Unanswered",
-        correct: q.options[q.correctAnswer],
-        isCorrect,
-        explanation: q.explanation,
+        question_id: Number(qId),
+        selected_option_id: selectedAnswers[String(qId)]
+          ? Number(selectedAnswers[String(qId)])
+          : null,
       };
     });
 
-    const percentage = Math.round((correctCount / activeExam.totalQuestions) * 100);
-    const passed = percentage >= 60;
-
-    const newResult: ExamResult = {
-      id: `att-${Date.now()}`,
-      examTitle: activeExam.title,
-      subject: activeExam.subject,
-      score: correctCount,
-      totalQuestions: activeExam.totalQuestions,
-      percentage,
-      passed,
-      date: new Date().toISOString().split("T")[0],
-      answers: breakdown,
-    };
-
-    setResults((prev) => [newResult, ...prev]);
-    setLastExamResult(newResult);
-    setExamFinished(true);
+    try {
+      const res = await api.submitExam(Number(activeExamSession.attempt_id), answers);
+      const submitData = res.data as unknown as SubmitResult;
+      setLastSubmitResult(submitData);
+      setExamFinished(true);
+      // Refresh results
+      fetchResults();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to submit exam.";
+      alert(msg);
+    } finally {
+      setExamSubmitting(false);
+    }
   }
 
-  // Format seconds to mm:ss
+  async function handleToggleEnrollment(courseId: string | number) {
+    const idStr = String(courseId);
+    const isEnrolled = myCourseIds.has(courseId);
+
+    if (isEnrolled) {
+      // Remove from preferred (select without this id)
+      const newIds = [...myCourseIds].filter((id) => String(id) !== idStr).map(Number);
+      try {
+        await api.selectPreferredCourses(newIds);
+        setMyCourseIds((prev) => {
+          const next = new Set(prev);
+          next.delete(courseId);
+          return next;
+        });
+      } catch {
+        /* ignore */
+      }
+    } else {
+      // Add to preferred
+      const newIds = [...myCourseIds, courseId].map(Number);
+      try {
+        await api.selectPreferredCourses(newIds);
+        setMyCourseIds((prev) => new Set([...prev, courseId]));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   function formatTime(seconds: number) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
 
-  // Stats calculation
-  const totalEnrolled = courses.filter((c) => c.enrolled).length;
+  /* ---------------------------------------------------------------- */
+  /*  Computed values                                                  */
+  /* ---------------------------------------------------------------- */
+  const totalEnrolled = myCourseIds.size;
   const averageScore =
     results.length > 0
       ? Math.round(
-          results.reduce((acc, curr) => acc + curr.percentage, 0) / results.length
+          results.reduce((acc, r) => acc + (r.percentage || 0), 0) / results.length
         )
       : 0;
+  const passedCount = results.filter((r) => r.passed).length;
 
+  /* ---------------------------------------------------------------- */
+  /*  Loading / Auth guard screen                                      */
+  /* ---------------------------------------------------------------- */
+  if (pageLoading) {
+    return (
+      <div className="dashboard-layout">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "100vh",
+            gap: "16px",
+            color: "#164a35",
+          }}
+        >
+          <BrandLogo href="/" />
+          <p style={{ fontSize: "14px", fontWeight: 600 }}>
+            Verifying your session...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Main Render                                                      */
+  /* ---------------------------------------------------------------- */
   return (
     <div className="dashboard-layout">
       {/* Top Header */}
@@ -579,20 +439,13 @@ export default function StudentDashboardPage() {
         </div>
 
         <div className="header-actions">
-          {!isLiveSession && (
-            <span className="demo-indicator" title="Local interactive mode">
-              <span className="demo-dot" />
-              Demo Mode · Samuel O. Deborah
-            </span>
-          )}
-
           <div className="user-profile-badge">
             <div className="user-avatar-circle">
-              {user.name.charAt(0)}
+              {user.name.charAt(0).toUpperCase()}
             </div>
             <div className="user-text-info">
               <span className="user-name">{user.name}</span>
-              <span className="user-role">{user.target || "Student"}</span>
+              <span className="user-role">{user.target || user.role || "Student"}</span>
             </div>
           </div>
 
@@ -615,7 +468,7 @@ export default function StudentDashboardPage() {
             <button
               className={`nav-item ${activeTab === "overview" ? "active" : ""}`}
               onClick={() => {
-                setActiveExam(null);
+                setActiveExamSession(null);
                 setActiveTab("overview");
               }}
             >
@@ -631,7 +484,7 @@ export default function StudentDashboardPage() {
             <button
               className={`nav-item ${activeTab === "courses" ? "active" : ""}`}
               onClick={() => {
-                setActiveExam(null);
+                setActiveExamSession(null);
                 setActiveTab("courses");
               }}
             >
@@ -640,13 +493,13 @@ export default function StudentDashboardPage() {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
               <span>My Subjects</span>
-              <span className="nav-badge">{totalEnrolled}</span>
+              {totalEnrolled > 0 && <span className="nav-badge">{totalEnrolled}</span>}
             </button>
 
             <button
               className={`nav-item ${activeTab === "exams" ? "active" : ""}`}
               onClick={() => {
-                setActiveExam(null);
+                setActiveExamSession(null);
                 setActiveTab("exams");
               }}
             >
@@ -654,14 +507,14 @@ export default function StudentDashboardPage() {
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              <span>Practice Tests & CBT</span>
-              <span className="nav-badge pulse">{exams.length}</span>
+              <span>Practice Tests &amp; CBT</span>
+              {exams.length > 0 && <span className="nav-badge pulse">{exams.length}</span>}
             </button>
 
             <button
               className={`nav-item ${activeTab === "results" ? "active" : ""}`}
               onClick={() => {
-                setActiveExam(null);
+                setActiveExamSession(null);
                 setActiveTab("results");
               }}
             >
@@ -670,13 +523,13 @@ export default function StudentDashboardPage() {
                 <line x1="12" y1="20" x2="12" y2="4" />
                 <line x1="6" y1="20" x2="6" y2="14" />
               </svg>
-              <span>Gradebook & Results</span>
+              <span>Gradebook &amp; Results</span>
             </button>
 
             <button
               className={`nav-item ${activeTab === "resources" ? "active" : ""}`}
               onClick={() => {
-                setActiveExam(null);
+                setActiveExamSession(null);
                 setActiveTab("resources");
               }}
             >
@@ -704,7 +557,7 @@ export default function StudentDashboardPage() {
               </div>
               <div className="tutor-card-meta">
                 <strong>Mr. Joseph O. Giwa</strong>
-                <small>Literature & Civics Tutor</small>
+                <small>Literature &amp; Civics Tutor</small>
               </div>
             </div>
             <a
@@ -720,15 +573,16 @@ export default function StudentDashboardPage() {
 
         {/* Dynamic Content View */}
         <main className="dashboard-main-content">
+
           {/* ========================================================= */}
           {/* 1. EXAM RUNNER ENGINE VIEW                                 */}
           {/* ========================================================= */}
-          {activeExam && !examFinished && (
+          {activeExamSession && !examFinished && (
             <div className="exam-runner-card">
               <div className="exam-runner-header">
                 <div>
-                  <span className="exam-runner-badge">{activeExam.subject} CBT ENGINE</span>
-                  <h2>{activeExam.title}</h2>
+                  <span className="exam-runner-badge">{activeExamSession.exam.course || activeExamSession.exam.type} CBT ENGINE</span>
+                  <h2>{activeExamSession.exam.title}</h2>
                 </div>
                 <div className={`exam-timer-box ${timeRemainingSeconds < 180 ? "timer-warning" : ""}`}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -742,18 +596,17 @@ export default function StudentDashboardPage() {
               {/* Progress and Question Navigator */}
               <div className="exam-navigator-bar">
                 <span className="q-progress-text">
-                  Question {currentQuestionIndex + 1} of {activeExam.totalQuestions}
+                  Question {currentQuestionIndex + 1} of {activeExamSession.questions.length}
                 </span>
                 <div className="q-dots-wrap">
-                  {activeExam.questions.map((q, idx) => {
-                    const isAnswered = selectedAnswers[q.id] !== undefined;
+                  {activeExamSession.questions.map((q, idx) => {
+                    const qId = String(q.id || (q as Record<string, unknown>)._id);
+                    const isAnswered = selectedAnswers[qId] !== undefined;
                     const isCurrent = idx === currentQuestionIndex;
                     return (
                       <button
-                        key={q.id}
-                        className={`q-dot-btn ${isCurrent ? "current" : ""} ${
-                          isAnswered ? "answered" : ""
-                        }`}
+                        key={qId}
+                        className={`q-dot-btn ${isCurrent ? "current" : ""} ${isAnswered ? "answered" : ""}`}
                         onClick={() => setCurrentQuestionIndex(idx)}
                       >
                         {idx + 1}
@@ -764,34 +617,35 @@ export default function StudentDashboardPage() {
               </div>
 
               {/* Current Question Block */}
-              {activeExam.questions[currentQuestionIndex] && (
-                <div className="exam-question-body">
-                  <p className="question-text">
-                    {activeExam.questions[currentQuestionIndex].question}
-                  </p>
+              {activeExamSession.questions[currentQuestionIndex] && (() => {
+                const currentQ = activeExamSession.questions[currentQuestionIndex];
+                const currentQId = String(currentQ.id || (currentQ as Record<string, unknown>)._id);
+                const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
-                  <div className="options-grid">
-                    {activeExam.questions[currentQuestionIndex].options.map(
-                      (opt, optIdx) => {
-                        const currentQId = activeExam.questions[currentQuestionIndex].id;
-                        const isSelected = selectedAnswers[currentQId] === optIdx;
-                        const letters = ["A", "B", "C", "D", "E"];
-
+                return (
+                  <div className="exam-question-body">
+                    <p className="question-text">
+                      {currentQ.question_text}
+                    </p>
+                    <div className="options-grid">
+                      {currentQ.options.map((opt, optIdx) => {
+                        const optId = opt.id || (opt as Record<string, unknown>)._id;
+                        const isSelected = String(selectedAnswers[currentQId]) === String(optId);
                         return (
                           <button
-                            key={opt}
+                            key={String(optId)}
                             className={`option-btn ${isSelected ? "selected" : ""}`}
-                            onClick={() => handleSelectOption(optIdx)}
+                            onClick={() => handleSelectOption(currentQId, optId as string | number)}
                           >
-                            <span className="option-letter">{letters[optIdx]}</span>
-                            <span className="option-text">{opt}</span>
+                            <span className="option-letter">{opt.option_letter || letters[optIdx]}</span>
+                            <span className="option-text">{opt.option_text}</span>
                           </button>
                         );
-                      }
-                    )}
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Footer Controls */}
               <div className="exam-runner-footer">
@@ -804,7 +658,7 @@ export default function StudentDashboardPage() {
                 </button>
 
                 <div className="exam-footer-right">
-                  {currentQuestionIndex < activeExam.totalQuestions - 1 ? (
+                  {currentQuestionIndex < activeExamSession.questions.length - 1 ? (
                     <button
                       className="exam-nav-btn primary"
                       onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
@@ -814,9 +668,10 @@ export default function StudentDashboardPage() {
                   ) : (
                     <button
                       className="exam-submit-btn"
-                      onClick={handleCompleteExam}
+                      onClick={handleSubmitExam}
+                      disabled={examSubmitting}
                     >
-                      Submit Exam Now ✓
+                      {examSubmitting ? "Submitting..." : "Submit Exam Now ✓"}
                     </button>
                   )}
                 </div>
@@ -825,31 +680,31 @@ export default function StudentDashboardPage() {
           )}
 
           {/* ========================================================= */}
-          {/* 1.5 EXAM SCORE RESULTS MODAL / SUMMARY                     */}
+          {/* 1.5 EXAM SCORE RESULTS SUMMARY                             */}
           {/* ========================================================= */}
-          {activeExam && examFinished && lastExamResult && (
+          {activeExamSession && examFinished && lastSubmitResult && (
             <div className="exam-result-summary-card">
               <div className="result-header">
-                <span className={`result-status-tag ${lastExamResult.passed ? "passed" : "failed"}`}>
-                  {lastExamResult.passed ? "PASSED · EXCELLENT" : "NEEDS PRACTICE"}
+                <span className={`result-status-tag ${lastSubmitResult.passed ? "passed" : "failed"}`}>
+                  {lastSubmitResult.passed ? "PASSED · EXCELLENT" : "NEEDS PRACTICE"}
                 </span>
                 <h2>Exam Complete: Automated Grading Report</h2>
-                <p>{lastExamResult.examTitle}</p>
+                <p>{lastSubmitResult.exam_title}</p>
               </div>
 
               <div className="score-hero-block">
                 <div className="score-circle">
-                  <span className="score-percent">{lastExamResult.percentage}%</span>
+                  <span className="score-percent">{lastSubmitResult.percentage}%</span>
                   <span className="score-ratio">
-                    {lastExamResult.score} / {lastExamResult.totalQuestions} Correct
+                    {lastSubmitResult.correct_answers_count} / {lastSubmitResult.correct_answers_count + lastSubmitResult.incorrect_answers_count + lastSubmitResult.unanswered_count} Correct
                   </span>
                 </div>
 
                 <div className="score-feedback">
                   <h3>
-                    {lastExamResult.percentage >= 80
+                    {lastSubmitResult.percentage >= 80
                       ? "Outstanding Mastery! 🌟"
-                      : lastExamResult.percentage >= 60
+                      : lastSubmitResult.percentage >= 60
                       ? "Good Effort! Keep Reinforcing! 👏"
                       : "Review Required. Review the concepts below. 📚"}
                   </h3>
@@ -861,13 +716,17 @@ export default function StudentDashboardPage() {
                   <div className="score-actions">
                     <button
                       className="button button-primary"
-                      onClick={() => setActiveExam(null)}
+                      onClick={() => {
+                        setActiveExamSession(null);
+                        setExamFinished(false);
+                        setLastSubmitResult(null);
+                      }}
                     >
                       Return to Dashboard
                     </button>
                     <button
                       className="button-outline"
-                      onClick={() => setReviewResult(lastExamResult)}
+                      onClick={() => setReviewResult(lastSubmitResult)}
                     >
                       Detailed Answers Breakdown
                     </button>
@@ -880,16 +739,18 @@ export default function StudentDashboardPage() {
           {/* ========================================================= */}
           {/* 2. OVERVIEW TAB                                            */}
           {/* ========================================================= */}
-          {!activeExam && activeTab === "overview" && (
+          {!activeExamSession && activeTab === "overview" && (
             <div className="dashboard-overview-pane">
               {/* Welcome Banner */}
               <div className="welcome-banner">
                 <div className="welcome-copy">
                   <span className="welcome-eyebrow">ACADEMIC JOURNEY IN PROGRESS</span>
-                  <h1>Welcome back, {user.name}!</h1>
+                  <h1>Welcome back, {user.name || "Student"}!</h1>
                   <p>
-                    Targeting excellence in <strong>{user.target}</strong>.
-                    You are currently enrolled in {totalEnrolled} active subjects. Keep your study momentum steady!
+                    You are currently enrolled in <strong>{totalEnrolled} active subject{totalEnrolled !== 1 ? "s" : ""}</strong>.
+                    {results.length > 0
+                      ? ` You have completed ${results.length} test${results.length !== 1 ? "s" : ""} with an average score of ${averageScore}%.`
+                      : " Start a practice test to track your progress!"}
                   </p>
                   <div className="welcome-actions">
                     <button
@@ -902,7 +763,7 @@ export default function StudentDashboardPage() {
                       className="button-outline"
                       onClick={() => setActiveTab("courses")}
                     >
-                      View Syllabus & Notes
+                      View Subjects
                     </button>
                   </div>
                 </div>
@@ -964,20 +825,20 @@ export default function StudentDashboardPage() {
                     </svg>
                   </div>
                   <div className="metric-data">
-                    <span className="metric-value">10/10</span>
-                    <span className="metric-title">Readiness Index</span>
+                    <span className="metric-value">{passedCount}/{results.length || 0}</span>
+                    <span className="metric-title">Tests Passed</span>
                   </div>
                 </div>
               </div>
 
-              {/* Two Column Layout: Quick Practice & Recent Performance */}
+              {/* Two Column Layout */}
               <div className="overview-split-row">
                 {/* Left: Quick Practice Tests */}
                 <div className="overview-card">
                   <div className="overview-card-header">
                     <div>
-                      <h3>Ready Practice Drills</h3>
-                      <p>Pick a subject and sharpen your exam speed</p>
+                      <h3>Available Exams</h3>
+                      <p>Pick a test and sharpen your exam speed</p>
                     </div>
                     <button
                       className="view-all-text-link"
@@ -988,58 +849,75 @@ export default function StudentDashboardPage() {
                   </div>
 
                   <div className="exam-quick-list">
-                    {exams.slice(0, 2).map((item) => (
-                      <div className="exam-quick-item" key={item.id}>
-                        <div className="exam-item-info">
-                          <span className="exam-item-tag">{item.subject}</span>
-                          <h4>{item.title}</h4>
-                          <small>
-                            ⏱ {item.durationMinutes} mins · {item.totalQuestions} Questions · {item.difficulty}
-                          </small>
-                        </div>
-                        <button
-                          className="start-test-pill-btn"
-                          onClick={() => handleStartExam(item)}
-                        >
-                          Start Test
-                        </button>
-                      </div>
-                    ))}
+                    {loadingExams ? (
+                      <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>Loading exams...</p>
+                    ) : exams.length === 0 ? (
+                      <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>No exams available yet. Check back soon!</p>
+                    ) : (
+                      exams.slice(0, 3).map((item) => {
+                        const examId = item.id || item._id || "";
+                        return (
+                          <div className="exam-quick-item" key={String(examId)}>
+                            <div className="exam-item-info">
+                              <span className="exam-item-tag">{item.course?.name || item.type}</span>
+                              <h4>{item.title}</h4>
+                              <small>
+                                ⏱ {item.duration_minutes} mins · {item.questions_count || "?"} Questions
+                              </small>
+                            </div>
+                            <button
+                              className="start-test-pill-btn"
+                              onClick={() => handleStartExam(examId)}
+                              disabled={examStarting}
+                            >
+                              {examStarting ? "..." : "Start Test"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
-                {/* Right: Enrolled Subjects Progress */}
+                {/* Right: Recent Results */}
                 <div className="overview-card">
                   <div className="overview-card-header">
                     <div>
-                      <h3>My Active Subjects</h3>
-                      <p>Syllabus completion & module progress</p>
+                      <h3>Recent Results</h3>
+                      <p>Your latest test performance</p>
                     </div>
                     <button
                       className="view-all-text-link"
-                      onClick={() => setActiveTab("courses")}
+                      onClick={() => setActiveTab("results")}
                     >
-                      Manage →
+                      View All →
                     </button>
                   </div>
 
                   <div className="course-progress-list">
-                    {courses
-                      .filter((c) => c.enrolled)
-                      .map((c) => (
-                        <div className="course-progress-item" key={c.id}>
-                          <div className="course-progress-meta">
-                            <strong>{c.title}</strong>
-                            <span>{c.progress}% completed</span>
+                    {loadingResults ? (
+                      <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>Loading results...</p>
+                    ) : results.length === 0 ? (
+                      <p style={{ padding: "16px", fontSize: "12px", color: "#777" }}>No test results yet. Take your first exam!</p>
+                    ) : (
+                      results.slice(0, 4).map((r) => {
+                        const rId = String(r.id || r._id || Math.random());
+                        return (
+                          <div className="course-progress-item" key={rId}>
+                            <div className="course-progress-meta">
+                              <strong>{r.exam?.title || "Exam"}</strong>
+                              <span>{r.percentage || 0}% · {r.passed ? "Passed ✓" : "Needs Review"}</span>
+                            </div>
+                            <div className="progress-track">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${r.percentage || 0}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="progress-track">
-                            <div
-                              className="progress-fill"
-                              style={{ width: `${c.progress}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -1049,142 +927,159 @@ export default function StudentDashboardPage() {
           {/* ========================================================= */}
           {/* 3. MY COURSES TAB                                          */}
           {/* ========================================================= */}
-          {!activeExam && activeTab === "courses" && (
+          {!activeExamSession && activeTab === "courses" && (
             <div className="dashboard-courses-pane">
               <div className="section-title-wrap">
                 <div>
                   <span className="eyebrow">ACADEMIC CURRICULUM</span>
-                  <h2>My Subjects & Syllabus</h2>
+                  <h2>My Subjects &amp; Courses</h2>
                   <p>
-                    Manage your enrolled subjects, view lecture topics, and master critical competencies.
+                    Browse available courses and enroll in your preferred subjects.
                   </p>
                 </div>
               </div>
 
-              <div className="courses-grid">
-                {courses.map((course) => (
-                  <div className="course-card" key={course.id}>
-                    <div className="course-card-top">
-                      <span className="course-code-tag">{course.code}</span>
-                      <span
-                        className={`enroll-status-badge ${
-                          course.enrolled ? "enrolled" : "available"
-                        }`}
-                      >
-                        {course.enrolled ? "✓ Enrolled" : "+ Available"}
-                      </span>
-                    </div>
+              {loadingCourses ? (
+                <div className="empty-state-card">
+                  <p>Loading courses from server...</p>
+                </div>
+              ) : courses.length === 0 ? (
+                <div className="empty-state-card">
+                  <p>No courses are available on the platform yet. Check back soon!</p>
+                </div>
+              ) : (
+                <div className="courses-grid">
+                  {courses.map((course) => {
+                    const cId = course.id || course._id || "";
+                    const isEnrolled = myCourseIds.has(cId);
+                    return (
+                      <div className="course-card" key={String(cId)}>
+                        <div className="course-card-top">
+                          <span className="course-code-tag">{course.code || course.name || "Course"}</span>
+                          <span
+                            className={`enroll-status-badge ${isEnrolled ? "enrolled" : "available"}`}
+                          >
+                            {isEnrolled ? "✓ Enrolled" : "+ Available"}
+                          </span>
+                        </div>
 
-                    <h3>{course.title}</h3>
-                    <p className="course-instructor">Instructor: {course.instructor}</p>
+                        <h3>{course.name || course.title || "Untitled Course"}</h3>
+                        {course.category && <p className="course-instructor">Category: {course.category}</p>}
+                        {course.description && (
+                          <div className="course-topics-block">
+                            <p>{course.description}</p>
+                          </div>
+                        )}
 
-                    <div className="course-topics-block">
-                      <span>CORE TOPICS & STUDY MODULES:</span>
-                      <ul>
-                        {course.topics.map((t) => (
-                          <li key={t}>
-                            <span className="check-bullet">▪</span>
-                            {t}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="course-card-footer">
-                      <div className="progress-line-wrap">
-                        <small>{course.progress}% Syllabus Completed</small>
-                        <div className="progress-track">
-                          <div
-                            className="progress-fill"
-                            style={{ width: `${course.progress}%` }}
-                          />
+                        <div className="course-card-footer">
+                          <button
+                            className={`enroll-toggle-btn ${isEnrolled ? "enrolled" : ""}`}
+                            onClick={() => handleToggleEnrollment(cId)}
+                          >
+                            {isEnrolled ? "Unenroll" : "Enroll in Subject"}
+                          </button>
                         </div>
                       </div>
-
-                      <button
-                        className={`enroll-toggle-btn ${course.enrolled ? "enrolled" : ""}`}
-                        onClick={() => handleToggleEnrollment(course.id)}
-                      >
-                        {course.enrolled ? "Unenroll" : "Enroll in Subject"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {/* ========================================================= */}
           {/* 4. PRACTICE TESTS & CBT TAB                                */}
           {/* ========================================================= */}
-          {!activeExam && activeTab === "exams" && (
+          {!activeExamSession && activeTab === "exams" && (
             <div className="dashboard-exams-pane">
               <div className="section-title-wrap">
                 <div>
                   <span className="eyebrow">COMPUTER-BASED TESTING (CBT)</span>
-                  <h2>Practice Tests & Mock Drills</h2>
+                  <h2>Practice Tests &amp; Mock Drills</h2>
                   <p>
                     Test your knowledge with real-time timed questions, instant scoring, and comprehensive explanations.
                   </p>
                 </div>
               </div>
 
-              <div className="exams-grid">
-                {exams.map((exam) => (
-                  <div className="exam-card" key={exam.id}>
-                    <div className="exam-card-header">
-                      <span className="exam-subject-badge">{exam.subject}</span>
-                      <span className="exam-diff-tag">{exam.difficulty}</span>
-                    </div>
+              {loadingExams ? (
+                <div className="empty-state-card">
+                  <p>Loading exams from server...</p>
+                </div>
+              ) : exams.length === 0 ? (
+                <div className="empty-state-card">
+                  <p>No exams are available yet. Your tutor will add practice tests soon!</p>
+                </div>
+              ) : (
+                <div className="exams-grid">
+                  {exams.map((exam) => {
+                    const examId = exam.id || exam._id || "";
+                    return (
+                      <div className="exam-card" key={String(examId)}>
+                        <div className="exam-card-header">
+                          <span className="exam-subject-badge">{exam.course?.name || exam.type}</span>
+                          <span className="exam-diff-tag">{exam.type === "live" ? "Live" : "Practice"}</span>
+                        </div>
 
-                    <h3>{exam.title}</h3>
-                    <div className="exam-meta-specs">
-                      <div>
-                        <span>Questions</span>
-                        <strong>{exam.totalQuestions}</strong>
-                      </div>
-                      <div>
-                        <span>Duration</span>
-                        <strong>{exam.durationMinutes} mins</strong>
-                      </div>
-                      <div>
-                        <span>Format</span>
-                        <strong>Timed CBT</strong>
-                      </div>
-                    </div>
+                        <h3>{exam.title}</h3>
+                        {exam.description && <p className="exam-note">{exam.description}</p>}
+                        <div className="exam-meta-specs">
+                          <div>
+                            <span>Questions</span>
+                            <strong>{exam.questions_count || "—"}</strong>
+                          </div>
+                          <div>
+                            <span>Duration</span>
+                            <strong>{exam.duration_minutes} mins</strong>
+                          </div>
+                          <div>
+                            <span>Format</span>
+                            <strong>Timed CBT</strong>
+                          </div>
+                        </div>
 
-                    <p className="exam-note">
-                      Instant feedback and detailed analysis provided automatically upon completion.
-                    </p>
+                        {exam.user_attempt ? (
+                          <div style={{ marginTop: "10px", fontSize: "11px", color: "#555" }}>
+                            Last attempt: {exam.user_attempt.percentage}% — {exam.user_attempt.passed ? "Passed ✓" : "Needs Review"}
+                          </div>
+                        ) : null}
 
-                    <button
-                      className="button button-primary full-width"
-                      onClick={() => handleStartExam(exam)}
-                    >
-                      Start Exam Now
-                    </button>
-                  </div>
-                ))}
-              </div>
+                        <button
+                          className="button button-primary full-width"
+                          onClick={() => handleStartExam(examId)}
+                          disabled={examStarting}
+                          style={{ marginTop: "12px" }}
+                        >
+                          {examStarting ? "Starting..." : exam.user_attempt ? "Retake Exam" : "Start Exam Now"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {/* ========================================================= */}
           {/* 5. RESULTS & GRADEBOOK TAB                                 */}
           {/* ========================================================= */}
-          {!activeExam && activeTab === "results" && (
+          {!activeExamSession && activeTab === "results" && (
             <div className="dashboard-results-pane">
               <div className="section-title-wrap">
                 <div>
-                  <span className="eyebrow">STUDENT PERFORMANCE & ANALYTICS</span>
-                  <h2>Gradebook & Past Submissions</h2>
+                  <span className="eyebrow">STUDENT PERFORMANCE &amp; ANALYTICS</span>
+                  <h2>Gradebook &amp; Past Submissions</h2>
                   <p>
                     Detailed records of your automated exam assessments, scores, and review breakdowns.
                   </p>
                 </div>
               </div>
 
-              {results.length === 0 ? (
+              {loadingResults ? (
+                <div className="empty-state-card">
+                  <p>Loading your results...</p>
+                </div>
+              ) : results.length === 0 ? (
                 <div className="empty-state-card">
                   <p>You haven&apos;t completed any tests yet.</p>
                   <button
@@ -1201,44 +1096,35 @@ export default function StudentDashboardPage() {
                       <tr>
                         <th>Date</th>
                         <th>Exam Title</th>
-                        <th>Subject</th>
                         <th>Score</th>
                         <th>Percentage</th>
                         <th>Status</th>
-                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {results.map((res) => (
-                        <tr key={res.id}>
-                          <td>{res.date}</td>
-                          <td className="table-bold">{res.examTitle}</td>
-                          <td>
-                            <span className="table-subject-tag">{res.subject}</span>
-                          </td>
-                          <td>
-                            {res.score} / {res.totalQuestions}
-                          </td>
-                          <td className="table-bold">{res.percentage}%</td>
-                          <td>
-                            <span
-                              className={`status-pill ${
-                                res.passed ? "passed" : "failed"
-                              }`}
-                            >
-                              {res.passed ? "Passed" : "Needs Review"}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              className="table-review-btn"
-                              onClick={() => setReviewResult(res)}
-                            >
-                              View Breakdown
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {results.map((res) => {
+                        const rId = String(res.id || res._id || Math.random());
+                        const dateStr = res.submitted_at
+                          ? new Date(res.submitted_at).toLocaleDateString()
+                          : "—";
+                        return (
+                          <tr key={rId}>
+                            <td>{dateStr}</td>
+                            <td className="table-bold">{res.exam?.title || "Exam"}</td>
+                            <td>
+                              {res.score ?? 0} / {res.total_possible ?? 0}
+                            </td>
+                            <td className="table-bold">{res.percentage ?? 0}%</td>
+                            <td>
+                              <span
+                                className={`status-pill ${res.passed ? "passed" : "failed"}`}
+                              >
+                                {res.passed ? "Passed" : "Needs Review"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1249,12 +1135,12 @@ export default function StudentDashboardPage() {
           {/* ========================================================= */}
           {/* 6. STUDY RESOURCES TAB                                     */}
           {/* ========================================================= */}
-          {!activeExam && activeTab === "resources" && (
+          {!activeExamSession && activeTab === "resources" && (
             <div className="dashboard-resources-pane">
               <div className="section-title-wrap">
                 <div>
                   <span className="eyebrow">HIGH-YIELD REVISION NOTES</span>
-                  <h2>Study Guides & Analytical Frameworks</h2>
+                  <h2>Study Guides &amp; Analytical Frameworks</h2>
                   <p>
                     Curated references prepared by lead tutor Mr. Joseph O. Giwa for quick mastery.
                   </p>
@@ -1271,39 +1157,30 @@ export default function StudentDashboardPage() {
                   </p>
                   <div className="resource-footer">
                     <span>Format: Quick Reference Guide</span>
-                    <a className="resource-link" href="#guide-lit">
-                      Read Online →
-                    </a>
                   </div>
                 </article>
 
                 <article className="resource-card">
                   <span className="resource-tag">Government</span>
-                  <h3>Constitutional Systems & Political Frameworks</h3>
+                  <h3>Constitutional Systems &amp; Political Frameworks</h3>
                   <p>
                     In-depth breakdown of Federal vs. Unitary governments, Separation of Powers,
                     Rule of Law, Electoral Systems, and Historical Civic Developments.
                   </p>
                   <div className="resource-footer">
                     <span>Format: Summary Notes</span>
-                    <a className="resource-link" href="#guide-gov">
-                      Read Online →
-                    </a>
                   </div>
                 </article>
 
                 <article className="resource-card">
                   <span className="resource-tag">English Language</span>
-                  <h3>Mastering Structural Essay Composition & Syntax</h3>
+                  <h3>Mastering Structural Essay Composition &amp; Syntax</h3>
                   <p>
                     Guide to advanced grammar rules, subject-verb agreement with compound
                     connectors, avoiding dangling modifiers, and structuring persuasive essays.
                   </p>
                   <div className="resource-footer">
                     <span>Format: Writing Guide</span>
-                    <a className="resource-link" href="#guide-eng">
-                      Read Online →
-                    </a>
                   </div>
                 </article>
               </div>
@@ -1324,9 +1201,9 @@ export default function StudentDashboardPage() {
             <div className="modal-header">
               <div>
                 <span className="eyebrow">AUTOMATED GRADING BREAKDOWN</span>
-                <h2>{reviewResult.examTitle}</h2>
+                <h2>{reviewResult.exam_title}</h2>
                 <p>
-                  Score: {reviewResult.score}/{reviewResult.totalQuestions} ({reviewResult.percentage}%) · Completed on {reviewResult.date}
+                  Score: {reviewResult.correct_answers_count}/{reviewResult.correct_answers_count + reviewResult.incorrect_answers_count + reviewResult.unanswered_count} ({reviewResult.percentage}%)
                 </p>
               </div>
               <button
@@ -1339,41 +1216,46 @@ export default function StudentDashboardPage() {
 
             <div className="modal-body">
               <div className="review-questions-list">
-                {reviewResult.answers.map((item, idx) => (
+                {reviewResult.breakdown.map((item, idx) => (
                   <div
                     key={idx}
-                    className={`review-question-card ${
-                      item.isCorrect ? "correct" : "incorrect"
-                    }`}
+                    className={`review-question-card ${item.is_correct ? "correct" : "incorrect"}`}
                   >
                     <div className="review-q-top">
                       <span className="q-index-badge">Question {idx + 1}</span>
-                      <span className={`eval-badge ${item.isCorrect ? "correct" : "incorrect"}`}>
-                        {item.isCorrect ? "✓ Correct" : "✗ Incorrect"}
+                      <span className={`eval-badge ${item.is_correct ? "correct" : "incorrect"}`}>
+                        {item.is_correct ? "✓ Correct" : "✗ Incorrect"}
                       </span>
                     </div>
 
-                    <p className="review-question-text">{item.question}</p>
+                    <p className="review-question-text">{item.question_text}</p>
 
                     <div className="review-answer-comparison">
                       <div>
                         <span className="ans-label">Your Answer:</span>
-                        <span className={`ans-val ${item.isCorrect ? "good" : "bad"}`}>
-                          {item.selected}
+                        <span className={`ans-val ${item.is_correct ? "good" : "bad"}`}>
+                          {item.selected_option
+                            ? `${item.selected_option.letter ? item.selected_option.letter + ". " : ""}${item.selected_option.text}`
+                            : "Unanswered"}
                         </span>
                       </div>
-                      {!item.isCorrect && (
+                      {!item.is_correct && item.correct_option && (
                         <div>
                           <span className="ans-label">Correct Answer:</span>
-                          <span className="ans-val correct-key">{item.correct}</span>
+                          <span className="ans-val correct-key">
+                            {item.correct_option.letter ? item.correct_option.letter + ". " : ""}
+                            {item.correct_option.text}
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    <div className="review-explanation-box">
-                      <strong>Tutor Explanation:</strong>
-                      <p>{item.explanation}</p>
-                    </div>
+                    {item.explanation && (
+                      <div className="review-explanation-box">
+                        <strong>Tutor Explanation:</strong>
+                        <p>{item.explanation}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

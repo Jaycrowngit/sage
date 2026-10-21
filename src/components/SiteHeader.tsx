@@ -35,9 +35,6 @@ export function SiteHeader() {
         <Link href="/founder" onClick={() => setMenuOpen(false)}>
           Our tutor
         </Link>
-        <Link href="/dashboard" onClick={() => setMenuOpen(false)}>
-          Student Portal
-        </Link>
       </nav>
       <Link className="header-cta" href="/register">
         Get started
