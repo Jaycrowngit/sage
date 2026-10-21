@@ -15,8 +15,11 @@ type UserProfile = {
   id?: number | string;
   name: string;
   email: string;
+  phone?: string;
+  bio?: string;
   role?: string;
   target?: string;
+  created_at?: string;
 };
 
 type ApiCourse = {
@@ -137,7 +140,7 @@ type SubmitResult = {
 
 export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "courses" | "practice" | "live" | "results" | "resources"
+    "overview" | "courses" | "practice" | "live" | "results" | "resources" | "profile"
   >("overview");
 
   // Auth & loading states
@@ -150,6 +153,15 @@ export default function StudentDashboardPage() {
     email: "",
     role: "student",
   });
+
+  // Profile Form states
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileBio, setProfileBio] = useState("");
+  const [profilePassword, setProfilePassword] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileStatusMessage, setProfileStatusMessage] = useState<string | null>(null);
+  const [profileStatusType, setProfileStatusType] = useState<"success" | "error" | null>(null);
 
   // Data states
   const [courses, setCourses] = useState<ApiCourse[]>([]);
@@ -186,13 +198,20 @@ export default function StudentDashboardPage() {
       .then((res) => {
         const u = res?.data?.user as Record<string, string> | undefined;
         if (u) {
-          setUser({
+          const profileData: UserProfile = {
             id: u.id || u._id,
             name: u.name || "",
             email: u.email || "",
+            phone: u.phone || "",
+            bio: u.bio || "",
             role: u.role || "student",
             target: u.target,
-          });
+            created_at: u.created_at,
+          };
+          setUser(profileData);
+          setProfileName(profileData.name);
+          setProfilePhone(profileData.phone || "");
+          setProfileBio(profileData.bio || "");
         }
         setAuthChecked(true);
         setPageLoading(false);
@@ -375,6 +394,45 @@ export default function StudentDashboardPage() {
     }
   }
 
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileStatusMessage(null);
+    setProfileStatusType(null);
+
+    try {
+      const payload: { name?: string; phone?: string; bio?: string; password?: string } = {
+        name: profileName.trim(),
+        phone: profilePhone.trim() || undefined,
+        bio: profileBio.trim() || undefined,
+      };
+
+      if (profilePassword.trim()) {
+        if (profilePassword.trim().length < 8) {
+          throw new Error("Password must be at least 8 characters long.");
+        }
+        payload.password = profilePassword.trim();
+      }
+
+      await api.updateProfile(payload);
+      setUser((prev) => ({
+        ...prev,
+        name: profileName.trim(),
+        phone: profilePhone.trim(),
+        bio: profileBio.trim(),
+      }));
+      setProfilePassword("");
+      setProfileStatusType("success");
+      setProfileStatusMessage("Profile updated successfully!");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to update profile.";
+      setProfileStatusType("error");
+      setProfileStatusMessage(msg);
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   function formatTime(seconds: number) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -382,10 +440,11 @@ export default function StudentDashboardPage() {
   }
 
   /* ---------------------------------------------------------------- */
-  /*  Computed Practice vs Live Exams Separation                       */
+  /*  Computed Values                                                  */
   /* ---------------------------------------------------------------- */
   const practiceExams = exams.filter((e) => e.type === "practice");
   const liveExams = exams.filter((e) => e.type === "live");
+  const enrolledCoursesList = courses.filter((c) => myCourseIds.has(c.id || c._id || ""));
 
   const totalEnrolled = myCourseIds.size;
   const averageScore =
@@ -483,13 +542,21 @@ export default function StudentDashboardPage() {
         </div>
 
         <div className="header-actions">
-          <div className="user-profile-badge">
+          {/* Clickable Student Profile Badge */}
+          <div
+            className="user-profile-badge clickable"
+            onClick={() => {
+              setActiveExamSession(null);
+              setActiveTab("profile");
+            }}
+            title="Click to view and edit student profile"
+          >
             <div className="user-avatar-circle">
               {user.name.charAt(0).toUpperCase()}
             </div>
             <div className="user-text-info">
               <span className="user-name">{user.name}</span>
-              <span className="user-role">{user.target || user.role || "Student"}</span>
+              <span className="user-role">Student Profile →</span>
             </div>
           </div>
 
@@ -523,6 +590,21 @@ export default function StudentDashboardPage() {
                 <rect x="3" y="14" width="7" height="7" />
               </svg>
               <span>Overview</span>
+            </button>
+
+            {/* STUDENT PROFILE NAVIGATION */}
+            <button
+              className={`nav-item ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => {
+                setActiveExamSession(null);
+                setActiveTab("profile");
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <span>Student Profile</span>
             </button>
 
             <button
@@ -839,9 +921,9 @@ export default function StudentDashboardPage() {
                     </button>
                     <button
                       className="button-outline"
-                      onClick={() => setActiveTab("practice")}
+                      onClick={() => setActiveTab("profile")}
                     >
-                      Check Practice Drills
+                      Manage Student Profile →
                     </button>
                   </div>
                 </div>
@@ -904,7 +986,7 @@ export default function StudentDashboardPage() {
                   </div>
                   <div className="metric-data">
                     <span className="metric-value">Active</span>
-                    <span className="metric-title">Session Status</span>
+                    <span className="metric-title">Account Verified</span>
                   </div>
                 </div>
               </div>
@@ -1010,6 +1092,195 @@ export default function StudentDashboardPage() {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* STUDENT PROFILE TAB                                       */}
+          {/* ========================================================= */}
+          {!activeExamSession && activeTab === "profile" && (
+            <div className="dashboard-profile-pane">
+              <div className="section-title-wrap">
+                <div>
+                  <span className="eyebrow">SCHOLAR ACCOUNT</span>
+                  <h2>Student Profile &amp; Settings</h2>
+                  <p>
+                    Manage your personal student details, enrolled curriculum focus, and security credentials.
+                  </p>
+                </div>
+              </div>
+
+              {/* Profile Hero Card */}
+              <div className="profile-hero-card">
+                <div className="profile-hero-left">
+                  <div className="profile-avatar-large">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="profile-hero-details">
+                    <h2>{user.name}</h2>
+                    <p>{user.email}</p>
+                    <div className="profile-tag-row">
+                      <span className="profile-role-tag">Sage Scholar ({user.role})</span>
+                      {user.created_at && (
+                        <span className="profile-date-tag">
+                          Member since {new Date(user.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Academic Highlights Grid */}
+              <div className="profile-stats-grid">
+                <div className="profile-stat-box">
+                  <span className="stat-label">Enrolled Subjects</span>
+                  <span className="stat-number">{totalEnrolled}</span>
+                  <span className="stat-hint">Active Courses</span>
+                </div>
+
+                <div className="profile-stat-box">
+                  <span className="stat-label">Tests Completed</span>
+                  <span className="stat-number">{results.length}</span>
+                  <span className="stat-hint">Attempted Exams</span>
+                </div>
+
+                <div className="profile-stat-box">
+                  <span className="stat-label">Average Score</span>
+                  <span className="stat-number">{averageScore}%</span>
+                  <span className="stat-hint">Cumulative Mark</span>
+                </div>
+
+                <div className="profile-stat-box">
+                  <span className="stat-label">Passed Tests</span>
+                  <span className="stat-number">{passedCount}</span>
+                  <span className="stat-hint">Benchmark Achieved</span>
+                </div>
+              </div>
+
+              {/* Enrolled Courses Preview */}
+              <div className="profile-section-card">
+                <h3>My Registered Subjects</h3>
+                <p className="subtitle">
+                  Academic subjects and preparation syllabi you have enrolled in.
+                </p>
+
+                {enrolledCoursesList.length === 0 ? (
+                  <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>
+                    You have not enrolled in any subjects yet.{" "}
+                    <button
+                      className="view-all-text-link"
+                      onClick={() => setActiveTab("courses")}
+                      style={{ textDecoration: "underline" }}
+                    >
+                      Browse courses to enroll →
+                    </button>
+                  </p>
+                ) : (
+                  <div className="enrolled-subjects-pill-list">
+                    {enrolledCoursesList.map((course) => (
+                      <span className="enrolled-subject-pill" key={String(course.id || course._id)}>
+                        <span>✓</span>
+                        <strong>{course.code || course.name}</strong>
+                        {course.title ? ` — ${course.title}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Profile Details Edit Form */}
+              <div className="profile-section-card">
+                <h3>Edit Personal Information</h3>
+                <p className="subtitle">
+                  Update your contact details or change your account password.
+                </p>
+
+                <form className="profile-form" onSubmit={handleSaveProfile}>
+                  <div className="profile-form-row">
+                    <div className="profile-form-group">
+                      <label htmlFor="student-full-name">Full Name</label>
+                      <input
+                        id="student-full-name"
+                        type="text"
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        required
+                        placeholder="Your full name"
+                      />
+                    </div>
+
+                    <div className="profile-form-group">
+                      <label htmlFor="student-email">Email Address (Registered)</label>
+                      <input
+                        id="student-email"
+                        type="email"
+                        value={user.email}
+                        disabled
+                        title="Registered email cannot be modified"
+                      />
+                      <small>Linked to your Sage student account.</small>
+                    </div>
+                  </div>
+
+                  <div className="profile-form-row">
+                    <div className="profile-form-group">
+                      <label htmlFor="student-phone">Phone / WhatsApp Number</label>
+                      <input
+                        id="student-phone"
+                        type="tel"
+                        value={profilePhone}
+                        onChange={(e) => setProfilePhone(e.target.value)}
+                        placeholder="e.g. +234 801 234 5678"
+                      />
+                      <small>Used for session notifications &amp; tutor communication.</small>
+                    </div>
+
+                    <div className="profile-form-group">
+                      <label htmlFor="student-password">New Password (Optional)</label>
+                      <input
+                        id="student-password"
+                        type="password"
+                        value={profilePassword}
+                        onChange={(e) => setProfilePassword(e.target.value)}
+                        placeholder="Leave blank to keep current password"
+                        minLength={8}
+                      />
+                      <small>Must be at least 8 characters long.</small>
+                    </div>
+                  </div>
+
+                  <div className="profile-form-group">
+                    <label htmlFor="student-bio">Target University / Academic Aspirations</label>
+                    <textarea
+                      id="student-bio"
+                      rows={3}
+                      value={profileBio}
+                      onChange={(e) => setProfileBio(e.target.value)}
+                      placeholder="e.g. Preparing for JAMB/UTME with focus on Law / Political Science at UI or UNILAG..."
+                    />
+                  </div>
+
+                  <div className="profile-form-actions">
+                    <div>
+                      {profileStatusMessage && (
+                        <span className={`profile-feedback-message ${profileStatusType}`}>
+                          {profileStatusType === "success" ? "✓ " : "⚠ "}
+                          {profileStatusMessage}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="button button-primary"
+                      disabled={profileSaving}
+                    >
+                      {profileSaving ? "Saving Updates..." : "Save Profile Details"}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

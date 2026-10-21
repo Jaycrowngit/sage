@@ -85,6 +85,11 @@ export const api = {
     }),
 
   getMe: () => request<{ user: unknown; stats?: unknown }>("auth/me"),
+  updateProfile: (payload: { name?: string; phone?: string; bio?: string; password?: string }) =>
+    request<{ user: unknown }>("auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
   logout: () => request("auth/logout", { method: "POST" }),
 
   // Courses
