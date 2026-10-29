@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { api, getAuthToken, removeAuthToken } from "@/lib/api";
+import { imageFileToAvatar } from "@/lib/avatar";
 import "./page.css";
 
 /* ------------------------------------------------------------------ */
@@ -19,6 +20,7 @@ type UserProfile = {
   bio?: string;
   role?: string;
   target?: string;
+  avatar_url?: string | null;
   created_at?: string;
 };
 
@@ -138,6 +140,20 @@ type SubmitResult = {
   breakdown: SubmitBreakdown[];
 };
 
+/** Profile picture, falling back to the first letter of the name. */
+function UserAvatar({ name, src, className }: { name: string; src?: string | null; className: string }) {
+  return (
+    <div className={className}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- served by the API; next/image would need remotePatterns
+        <img src={src} alt={`${name}'s profile picture`} className="user-avatar-img" />
+      ) : (
+        (name.charAt(0) || "S").toUpperCase()
+      )}
+    </div>
+  );
+}
+
 export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "courses" | "practice" | "live" | "results" | "resources" | "profile"
@@ -163,6 +179,9 @@ export default function StudentDashboardPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileStatusMessage, setProfileStatusMessage] = useState<string | null>(null);
   const [profileStatusType, setProfileStatusType] = useState<"success" | "error" | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoStatusMessage, setPhotoStatusMessage] = useState<string | null>(null);
+  const [photoStatusType, setPhotoStatusType] = useState<"success" | "error" | null>(null);
 
   // Data states
   const [courses, setCourses] = useState<ApiCourse[]>([]);
@@ -207,6 +226,7 @@ export default function StudentDashboardPage() {
             bio: u.bio || "",
             role: u.role || "student",
             target: u.target,
+            avatar_url: u.avatar_url || null,
             created_at: u.created_at,
           };
           setUser(profileData);
@@ -316,7 +336,7 @@ export default function StudentDashboardPage() {
   async function handleStartExam(examId: string | number) {
     setExamStarting(true);
     try {
-      const res = await api.startExam(Number(examId));
+      const res = await api.startExam(examId);
       const session = res.data as unknown as ApiExamSession;
       setActiveExamSession(session);
       setCurrentQuestionIndex(0);
@@ -347,15 +367,15 @@ export default function StudentDashboardPage() {
     const answers = activeExamSession.questions.map((q) => {
       const qId = q.id || (q as Record<string, unknown>)._id;
       return {
-        question_id: Number(qId),
+        question_id: String(qId),
         selected_option_id: selectedAnswers[String(qId)]
-          ? Number(selectedAnswers[String(qId)])
+          ? String(selectedAnswers[String(qId)])
           : null,
       };
     });
 
     try {
-      const res = await api.submitExam(Number(activeExamSession.attempt_id), answers);
+      const res = await api.submitExam(activeExamSession.attempt_id, answers);
       const submitData = res.data as unknown as SubmitResult;
       setLastSubmitResult(submitData);
       setExamFinished(true);
@@ -373,7 +393,7 @@ export default function StudentDashboardPage() {
     const isEnrolled = myCourseIds.has(courseId);
 
     if (isEnrolled) {
-      const newIds = [...myCourseIds].filter((id) => String(id) !== idStr).map(Number);
+      const newIds = [...myCourseIds].filter((id) => String(id) !== idStr).map(String);
       try {
         await api.selectPreferredCourses(newIds);
         setMyCourseIds((prev) => {
@@ -385,13 +405,54 @@ export default function StudentDashboardPage() {
         /* ignore */
       }
     } else {
-      const newIds = [...myCourseIds, courseId].map(Number);
+      const newIds = [...myCourseIds, courseId].map(String);
       try {
         await api.selectPreferredCourses(newIds);
         setMyCourseIds((prev) => new Set([...prev, courseId]));
       } catch {
         /* ignore */
       }
+    }
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow picking the same file again
+    if (!file) return;
+
+    setPhotoBusy(true);
+    setPhotoStatusMessage(null);
+    setPhotoStatusType(null);
+    try {
+      const avatar = await imageFileToAvatar(file);
+      const res = await api.uploadAvatar(avatar);
+      setUser((prev) => ({ ...prev, avatar_url: res?.data?.avatar_url ?? null }));
+      setPhotoStatusType("success");
+      setPhotoStatusMessage("Profile picture updated!");
+    } catch (err) {
+      setPhotoStatusType("error");
+      setPhotoStatusMessage(err instanceof Error ? err.message : "Failed to upload profile picture.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function handlePhotoRemove() {
+    if (!confirm("Remove your profile picture?")) return;
+
+    setPhotoBusy(true);
+    setPhotoStatusMessage(null);
+    setPhotoStatusType(null);
+    try {
+      await api.removeAvatar();
+      setUser((prev) => ({ ...prev, avatar_url: null }));
+      setPhotoStatusType("success");
+      setPhotoStatusMessage("Profile picture removed.");
+    } catch (err) {
+      setPhotoStatusType("error");
+      setPhotoStatusMessage(err instanceof Error ? err.message : "Failed to remove profile picture.");
+    } finally {
+      setPhotoBusy(false);
     }
   }
 
@@ -572,9 +633,7 @@ export default function StudentDashboardPage() {
             }}
             title="Click to view and edit student profile"
           >
-            <div className="user-avatar-circle">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
+            <UserAvatar name={user.name} src={user.avatar_url} className="user-avatar-circle" />
             <div className="user-text-info">
               <span className="user-name">{user.name}</span>
               <span className="user-role">Student Profile</span>
@@ -608,9 +667,7 @@ export default function StudentDashboardPage() {
           {/* Mobile Drawer Header */}
           <div className="sidebar-mobile-header">
             <div className="sidebar-mobile-profile">
-              <div className="user-avatar-circle small">
-                {user.name ? user.name.charAt(0).toUpperCase() : "S"}
-              </div>
+              <UserAvatar name={user.name || "Student"} src={user.avatar_url} className="user-avatar-circle small" />
               <div className="sidebar-mobile-user-info">
                 <span className="sidebar-mobile-name">{user.name || "Student"}</span>
                 <span className="sidebar-mobile-email">{user.email || ""}</span>
@@ -1197,9 +1254,7 @@ export default function StudentDashboardPage() {
               {/* Profile Hero Card */}
               <div className="profile-hero-card">
                 <div className="profile-hero-left">
-                  <div className="profile-avatar-large">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
+                  <UserAvatar name={user.name} src={user.avatar_url} className="profile-avatar-large" />
                   <div className="profile-hero-details">
                     <h2>{user.name}</h2>
                     <p>{user.email}</p>
@@ -1212,6 +1267,38 @@ export default function StudentDashboardPage() {
                       )}
                     </div>
                   </div>
+                </div>
+
+                <div className="profile-photo-controls">
+                  <div className="profile-photo-buttons">
+                    <label className="button button-primary" aria-disabled={photoBusy}>
+                      {photoBusy ? "Uploading..." : user.avatar_url ? "Change Photo" : "Upload Photo"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="visually-hidden-input"
+                        onChange={handlePhotoChange}
+                        disabled={photoBusy}
+                      />
+                    </label>
+                    {user.avatar_url && (
+                      <button
+                        type="button"
+                        className="button-outline"
+                        onClick={handlePhotoRemove}
+                        disabled={photoBusy}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <span className="profile-photo-hint">JPG, PNG or WebP · cropped to a square</span>
+                  {photoStatusMessage && (
+                    <span className={`profile-feedback-message ${photoStatusType}`}>
+                      {photoStatusType === "success" ? "✓ " : "⚠ "}
+                      {photoStatusMessage}
+                    </span>
+                  )}
                 </div>
               </div>
 

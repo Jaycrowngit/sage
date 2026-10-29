@@ -72,7 +72,7 @@ async function request<T = unknown>(
 
 export const api = {
   // Auth
-  register: (payload: { name: string; email: string; password: string; role?: string; phone?: string; course_ids?: number[] }) =>
+  register: (payload: { name: string; email: string; password: string; role?: string; phone?: string; course_ids?: Array<string | number> }) =>
     request<{ user: unknown; token: string }>("auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -90,11 +90,18 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  /** `avatar` is a data URL produced by imageFileToAvatar(). */
+  uploadAvatar: (avatar: string) =>
+    request<{ avatar_url?: string | null }>("auth/avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatar }),
+    }),
+  removeAvatar: () => request("auth/avatar", { method: "DELETE" }),
   logout: () => request("auth/logout", { method: "POST" }),
 
   // Courses
   getCourses: () => request<unknown[]>("courses"),
-  selectPreferredCourses: (courseIds: number[]) =>
+  selectPreferredCourses: (courseIds: Array<string | number>) =>
     request("student/courses/choose", {
       method: "POST",
       body: JSON.stringify({ course_ids: courseIds }),
@@ -102,7 +109,7 @@ export const api = {
   getMyCourses: () => request<unknown[]>("student/courses"),
 
   // Student Exams & Instant Automated Grading
-  getExams: (params?: { type?: "practice" | "live"; course_id?: number; preferred_only?: boolean }) => {
+  getExams: (params?: { type?: "practice" | "live"; course_id?: string | number; preferred_only?: boolean }) => {
     const searchParams = new URLSearchParams();
     if (params?.type) searchParams.set("type", params.type);
     if (params?.course_id) searchParams.set("course_id", params.course_id.toString());
@@ -111,18 +118,18 @@ export const api = {
     return request<unknown>(`exams${qs ? `?${qs}` : ""}`);
   },
 
-  startExam: (examId: number) =>
-    request<{ attempt_id: number; exam: unknown; session: unknown; questions: unknown[] }>(
+  startExam: (examId: string | number) =>
+    request<{ attempt_id: string | number; exam: unknown; session: unknown; questions: unknown[] }>(
       `student/exams/${examId}/start`,
       { method: "POST" }
     ),
 
   submitExam: (
-    attemptId: number,
-    answers: Array<{ question_id: number; selected_option_id: number | null }>
+    attemptId: string | number,
+    answers: Array<{ question_id: string | number; selected_option_id: string | number | null }>
   ) =>
     request<{
-      attempt_id: number;
+      attempt_id: string | number;
       score: number;
       total_possible: number;
       percentage: number;
@@ -137,7 +144,7 @@ export const api = {
     }),
 
   // Student Results
-  getMyResults: (params?: { type?: "practice" | "live"; course_id?: number }) => {
+  getMyResults: (params?: { type?: "practice" | "live"; course_id?: string | number }) => {
     const searchParams = new URLSearchParams();
     if (params?.type) searchParams.set("type", params.type);
     if (params?.course_id) searchParams.set("course_id", params.course_id.toString());
@@ -145,6 +152,6 @@ export const api = {
     return request<unknown>(`student/results${qs ? `?${qs}` : ""}`);
   },
 
-  getResultDetail: (attemptId: number) =>
+  getResultDetail: (attemptId: string | number) =>
     request<{ attempt: unknown; answers: unknown[] }>(`student/results/${attemptId}`),
 };
