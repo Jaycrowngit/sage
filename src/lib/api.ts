@@ -147,10 +147,4 @@ export const api = {
 
   getResultDetail: (attemptId: number) =>
     request<{ attempt: unknown; answers: unknown[] }>(`student/results/${attemptId}`),
-
-  // Admin & Tutor
-  getAdminDashboard: () => request<unknown>("admin/dashboard"),
-  getAdminStudents: () => request<unknown>("admin/students"),
-  getAdminResults: () => request<unknown>("admin/results"),
-  exportAdminResults: () => request<{ records: unknown[] }>("admin/results/export"),
 };
