@@ -3,6 +3,13 @@
   background: var(--paper);
 }
 
+/* Side margins: .section-wrap is only defined for the home page, so give this page's
+   sections the same width as the hero and other inner-page sections */
+.stories-page .section-wrap {
+  width: min(1080px, 100% - 96px);
+  margin-inline: auto;
+}
+
 .stories-highlights {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -47,12 +54,103 @@
   gap: 36px;
 }
 
+/* Full-width card: profile panel beside the story, so the story keeps a readable line length */
 .spotlight-card {
   background: #fffdf5;
   border: 1px solid var(--line);
   border-top: 5px solid var(--green);
-  padding: clamp(30px, 5vw, 55px);
   box-shadow: 0 14px 40px rgba(16, 56, 37, 0.07);
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-areas: "profile content";
+}
+
+/* Alternate sides so consecutive stories don't look identical */
+.spotlight-card:nth-child(even) {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-areas: "content profile";
+}
+
+.spotlight-profile {
+  grid-area: profile;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 32px 28px;
+  background: #f1f6e2;
+  border-right: 1px solid var(--line);
+}
+
+.spotlight-card:nth-child(even) .spotlight-profile {
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+.spotlight-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: 3px solid var(--green);
+  border-radius: 4px;
+  background: #e7edcf;
+}
+
+.spotlight-photo-img {
+  object-fit: cover;
+  object-position: center 25%;
+}
+
+/* Shown when there is no real photo of the student yet */
+.spotlight-photo-initials {
+  display: grid;
+  place-items: center;
+  font-family: Georgia, Times New Roman, serif;
+  font-size: 64px;
+  font-weight: 700;
+  color: var(--green);
+  background: linear-gradient(160deg, #e7edcf, #d4e3b0);
+}
+
+.spotlight-profile-text h3 {
+  margin: 0 0 6px;
+  font-family: Georgia, Times New Roman, serif;
+  font-size: 20px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.spotlight-profile-text span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.spotlight-profile-text .spotlight-school {
+  margin-top: 2px;
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
+.spotlight-content {
+  grid-area: content;
+  position: relative;
+  padding: clamp(30px, 4.5vw, 52px);
+}
+
+/* Large decorative quotation mark behind the headline */
+.spotlight-content::before {
+  content: "\201C";
+  position: absolute;
+  top: 6px;
+  right: 28px;
+  font-family: Georgia, Times New Roman, serif;
+  font-size: 160px;
+  line-height: 1;
+  color: var(--green);
+  opacity: 0.08;
+  pointer-events: none;
 }
 
 .spotlight-badge-row {
@@ -86,6 +184,8 @@
 }
 
 .spotlight-title {
+  position: relative;
+  max-width: 30ch;
   margin: 0 0 24px;
   font-family: Georgia, Times New Roman, serif;
   font-size: clamp(26px, 3.8vw, 38px);
@@ -94,6 +194,8 @@
 }
 
 .spotlight-quote-body {
+  position: relative;
+  max-width: 68ch;
   color: #383d36;
   font-size: 15px;
   line-height: 1.85;
@@ -133,44 +235,10 @@
   padding-top: 10px;
 }
 
-.spotlight-author-footer {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
-}
-
-.spotlight-author-avatar {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 3px solid var(--green);
-  background: #e7edcf;
-}
-
-.spotlight-author-details h3 {
-  margin: 0 0 4px;
-  font-family: Georgia, Times New Roman, serif;
-  font-size: 18px;
-  color: var(--ink);
-}
-
-.spotlight-author-details span {
-  font-size: 12px;
-  color: var(--muted);
-  display: block;
-}
-
 .spotlight-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
 }
 
 /* MORE TESTIMONIALS GRID */
@@ -322,7 +390,7 @@
 }
 
 .stories-cta-section {
-  width: min(1180px, 100% - 96px);
+  width: min(1080px, 100% - 96px);
   margin: 40px auto 90px;
 }
 
@@ -381,16 +449,57 @@
   .stories-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Featured cards stack: compact photo-and-name row above the story */
+  .spotlight-card,
+  .spotlight-card:nth-child(even) {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "profile"
+      "content";
+  }
+
+  .spotlight-profile,
+  .spotlight-card:nth-child(even) .spotlight-profile {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px 16px;
+    padding: 22px 24px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .spotlight-photo {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    aspect-ratio: 1;
+    border-radius: 50%;
+  }
+
+  .spotlight-photo-initials {
+    font-size: 26px;
+  }
+
+  .spotlight-profile-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .spotlight-profile .spotlight-tags {
+    width: 100%;
+  }
+
+  .spotlight-content::before {
+    font-size: 110px;
+  }
 }
 
 @media (max-width: 640px) {
-  .spotlight-author-footer {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
+  .stories-page .section-wrap,
   .stories-cta-section {
-    width: min(100% - 32px, 1180px);
+    width: calc(100% - 40px);
   }
 
   .stories-cta-card {

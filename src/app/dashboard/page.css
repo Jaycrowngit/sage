@@ -941,6 +941,22 @@
   animation: pulse 1s infinite;
 }
 
+/* Autosave and time-up status line under the exam header */
+.exam-save-status {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6b5e;
+}
+
+.exam-save-status.saved {
+  color: #1a7029;
+}
+
+.exam-save-status.retrying {
+  color: #b73822;
+}
+
 .exam-navigator-bar {
   display: flex;
   justify-content: space-between;
@@ -1047,6 +1063,93 @@
   color: #fffdf5;
 }
 
+/* Practice tests: options once the answer has been marked */
+.option-btn:disabled {
+  cursor: default;
+}
+
+.option-btn.correct,
+.option-btn.correct:hover {
+  background: #e7f5e8;
+  border-color: #2e8b41;
+}
+
+.option-btn.correct .option-letter {
+  background: #2e8b41;
+  border-color: #2e8b41;
+  color: #fffdf5;
+}
+
+.option-btn.incorrect,
+.option-btn.incorrect:hover {
+  background: #fdeee9;
+  border-color: #cb3522;
+}
+
+.option-btn.incorrect .option-letter {
+  background: #cb3522;
+  border-color: #cb3522;
+  color: #fffdf5;
+}
+
+.option-btn.dimmed,
+.option-btn.dimmed:hover {
+  background: #fffdf5;
+  border-color: var(--line);
+  opacity: 0.55;
+}
+
+.answer-feedback {
+  margin: 16px 0 0;
+  padding: 14px 18px;
+  border-left: 4px solid var(--line);
+  background: #fbfaf5;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.answer-feedback p {
+  margin: 6px 0 0;
+  color: #3f443e;
+}
+
+.answer-feedback.checking {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.answer-feedback.correct {
+  background: #e7f5e8;
+  border-left-color: #2e8b41;
+  color: #1a7029;
+}
+
+.answer-feedback.incorrect {
+  background: #fdeee9;
+  border-left-color: #cb3522;
+  color: #b73822;
+}
+
+/* The question dots are a progress indicator, not navigation (exams are forward-only) */
+span.q-dot-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.q-dot-btn.correct:not(.current) {
+  background: #e7f5e8;
+  border-color: #2e8b41;
+  color: #1a7029;
+}
+
+.q-dot-btn.incorrect:not(.current) {
+  background: #fdeee9;
+  border-color: #cb3522;
+  color: #b73822;
+}
+
 .option-text {
   font-size: 14px;
   color: #2b3328;
@@ -1059,6 +1162,11 @@
   align-items: center;
   padding-top: 22px;
   border-top: 1px solid var(--line);
+}
+
+/* The only footer control (no Previous button), kept on the right */
+.exam-footer-right {
+  margin-left: auto;
 }
 
 .exam-nav-btn {
@@ -1452,6 +1560,12 @@
 .eval-badge.incorrect {
   background: #fdeee9;
   color: #b73822;
+}
+
+/* Live exam answer submitted but not yet marked visibly (answer key withheld) */
+.eval-badge.pending {
+  background: #f1efe6;
+  color: #6b6b5e;
 }
 
 .review-question-text {

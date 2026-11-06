@@ -29,6 +29,16 @@ export function removeAuthToken() {
   }
 }
 
+/** Error thrown for non-2xx responses; `status` is 0 when the request never reached the server. */
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
@@ -46,12 +56,17 @@ async function request<T = unknown>(
 
   const url = `${API_BASE_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError("Could not reach the server. Check your internet connection.", 0);
+  }
 
-  let json: any = null;
+  let json: { message?: string; error?: string } | null = null;
   const text = await response.text();
   try {
     json = JSON.parse(text);
@@ -64,15 +79,15 @@ async function request<T = unknown>(
       json?.message ||
       json?.error ||
       `Request failed with status ${response.status}`;
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status);
   }
 
-  return json;
+  return json as { success: boolean; message: string; data: T };
 }
 
 export const api = {
   // Auth
-  register: (payload: { name: string; email: string; password: string; role?: string; phone?: string; course_ids?: Array<string | number> }) =>
+  register: (payload: { name: string; email: string; password: string; phone?: string; course_ids?: Array<string | number> }) =>
     request<{ user: unknown; token: string }>("auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -119,10 +134,49 @@ export const api = {
   },
 
   startExam: (examId: string | number) =>
-    request<{ attempt_id: string | number; exam: unknown; session: unknown; questions: unknown[] }>(
-      `student/exams/${examId}/start`,
-      { method: "POST" }
-    ),
+    request<{
+      attempt_id: string | number;
+      exam: unknown;
+      session: unknown;
+      questions: unknown[];
+      /** answers autosaved earlier in this attempt, keyed by question id */
+      saved_answers?: Record<string, string>;
+    }>(`student/exams/${examId}/start`, { method: "POST" }),
+
+  /** Practice tests only: mark one answer instantly. The first answer to a question is final. */
+  checkAnswer: (attemptId: string | number, questionId: string, selectedOptionId: string) =>
+    request<{
+      question_id: string;
+      selected_option_id: string;
+      is_correct: boolean;
+      correct_option_id: string | null;
+      correct_option_letter: string | null;
+      explanation: string | null;
+      already_answered: boolean;
+    }>(`student/attempts/${attemptId}/check`, {
+      method: "POST",
+      body: JSON.stringify({ question_id: questionId, selected_option_id: selectedOptionId }),
+    }),
+
+  /**
+   * Move past a question (exams are forward-only). For live exams the answer is saved in the
+   * same step; once passed, the question can't be revisited or changed.
+   */
+  nextQuestion: (attemptId: string | number, questionId: string, selectedOptionId: string | null) =>
+    request<{ passed_question_ids: string[] }>(`student/attempts/${attemptId}/next`, {
+      method: "POST",
+      body: JSON.stringify({ question_id: questionId, selected_option_id: selectedOptionId }),
+    }),
+
+  /** Autosave answers while the exam is open. */
+  saveAnswers: (
+    attemptId: string | number,
+    answers: Array<{ question_id: string; selected_option_id: string | null }>
+  ) =>
+    request<{ saved: number; saved_at: string }>(`student/attempts/${attemptId}/answers`, {
+      method: "PUT",
+      body: JSON.stringify({ answers }),
+    }),
 
   submitExam: (
     attemptId: string | number,

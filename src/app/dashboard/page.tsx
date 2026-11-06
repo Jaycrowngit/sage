@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
-import { api, getAuthToken, removeAuthToken } from "@/lib/api";
+import { api, ApiError, getAuthToken, removeAuthToken } from "@/lib/api";
 import { imageFileToAvatar } from "@/lib/avatar";
 import "./page.css";
 
@@ -95,7 +95,49 @@ type ApiExamSession = {
     remaining_seconds: number;
   };
   questions: ApiQuestion[];
+  /** answers autosaved earlier in this attempt (present when resuming), keyed by question id */
+  saved_answers?: Record<string, string>;
+  /** true for practice tests: each answer is marked as soon as it is picked */
+  instant_feedback?: boolean;
+  /** practice feedback for answers already given in this attempt (when resuming) */
+  answer_feedback?: Record<string, AnswerFeedback>;
+  /** questions already moved past; exams are forward-only, so a resumed session continues after them */
+  passed_question_ids?: string[];
 };
+
+/** Instant result for one practice-test answer */
+type AnswerFeedback = {
+  question_id: string;
+  selected_option_id: string;
+  is_correct: boolean;
+  correct_option_id: string | null;
+  correct_option_letter: string | null;
+  explanation: string | null;
+};
+
+/** Autosave state shown next to the exam timer */
+type SaveStatus = "idle" | "saving" | "saved" | "retrying";
+
+/** Fallback option letters when an option has none stored */
+const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+
+/** Index of the first question the student hasn't moved past yet (exams are forward-only). */
+function firstOpenQuestionIndex(session: ApiExamSession): number {
+  const passed = new Set(session.passed_question_ids ?? []);
+  const index = session.questions.findIndex((q) => !passed.has(String(q.id || (q as Record<string, unknown>)._id)));
+  // Every question passed (or none): stay on the last one so the student can still submit
+  return index === -1 ? Math.max(0, session.questions.length - 1) : index;
+}
+
+/** Wall-clock time (ms) `seconds` from now. */
+function deadlineIn(seconds: number): number {
+  return Date.now() + seconds * 1000;
+}
+
+/** Whole seconds left until a wall-clock deadline (ms), never negative. */
+function secondsUntil(deadline: number): number {
+  return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+}
 
 type ApiResult = {
   id?: string | number;
@@ -120,9 +162,10 @@ type SubmitBreakdown = {
   question_id: string | number;
   question_text: string;
   explanation?: string;
-  is_correct: boolean;
+  /** null while a live exam's answer key is still withheld */
+  is_correct: boolean | null;
   marks: number;
-  marks_awarded: number;
+  marks_awarded: number | null;
   selected_option: { id: string | number; letter?: string; text: string } | null;
   correct_option: { id: string | number; letter?: string; text: string } | null;
 };
@@ -137,6 +180,11 @@ type SubmitResult = {
   correct_answers_count: number;
   incorrect_answers_count: number;
   unanswered_count: number;
+  /** false for a live exam whose window is still open: correct answers and explanations are withheld */
+  answers_revealed?: boolean;
+  answers_available_at?: string | null;
+  /** submitted after time ran out: only answers autosaved before the deadline were marked */
+  late?: boolean;
   breakdown: SubmitBreakdown[];
 };
 
@@ -202,6 +250,26 @@ export default function StudentDashboardPage() {
   const [reviewResult, setReviewResult] = useState<SubmitResult | null>(null);
   const [examStarting, setExamStarting] = useState(false);
   const [examSubmitting, setExamSubmitting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // Practice tests: per-question feedback, the question being checked, and a failed check
+  const [answerFeedback, setAnswerFeedback] = useState<Record<string, AnswerFeedback>>({});
+  const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<{ questionId: string; message: string } | null>(null);
+  // Next button: exams are forward-only, so moving on is confirmed with the server first
+  const [movingNext, setMovingNext] = useState(false);
+  const [nextError, setNextError] = useState<string | null>(null);
+  // Bumped to re-run the automatic submit after it failed (e.g. connection dropped at time-up)
+  const [autoSubmitRetry, setAutoSubmitRetry] = useState(0);
+  const [autoSubmitError, setAutoSubmitError] = useState<string | null>(null);
+
+  // Wall-clock deadline (ms) for the running exam; the timer is derived from it, so it never drifts
+  // when the browser throttles a background tab
+  const examDeadlineRef = useRef(0);
+  // Answers chosen but not yet confirmed saved by the server, keyed by question id
+  const pendingAnswersRef = useRef<Record<string, string>>({});
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const examInProgress = !!activeExamSession && !examFinished;
 
   /* ---------------------------------------------------------------- */
   /*  Auth guard — redirect to /login if no token                      */
@@ -307,30 +375,35 @@ export default function StudentDashboardPage() {
   /* ---------------------------------------------------------------- */
   /*  Timer effect during active exam                                  */
   /* ---------------------------------------------------------------- */
-  useEffect(() => {
-    if (!activeExamSession || examFinished) return;
-
-    if (timeRemainingSeconds <= 0) {
-      handleSubmitExam();
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeRemainingSeconds((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeExamSession, timeRemainingSeconds, examFinished]);
-
   /* ---------------------------------------------------------------- */
   /*  Handlers                                                         */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * Leaving the exam screen keeps the attempt open on the server: answers are saved and the
+   * timer keeps running, and the student can resume from the exam list until time runs out.
+   */
+  function confirmLeaveExam(): boolean {
+    if (!examInProgress) return true;
+    const ok = confirm(
+      "Leave the exam? Your answers are saved and the timer keeps running. You can return to it from the exam list before time runs out."
+    );
+    if (ok) flushAnswers();
+    return ok;
+  }
+
+  /** Navigate away from the exam view (after confirmation when an exam is running). */
+  function leaveExamView(next: () => void) {
+    if (!confirmLeaveExam()) return;
+    setActiveExamSession(null);
+    next();
+  }
+
   function handleLogout() {
+    if (!confirmLeaveExam()) return;
     api.logout().catch(() => {});
     removeAuthToken();
-    window.location.href = "/login";
+    window.location.assign("/login");
   }
 
   async function handleStartExam(examId: string | number) {
@@ -338,31 +411,167 @@ export default function StudentDashboardPage() {
     try {
       const res = await api.startExam(examId);
       const session = res.data as unknown as ApiExamSession;
+      const remaining = Math.max(0, Math.floor(session.session.remaining_seconds));
+      examDeadlineRef.current = deadlineIn(remaining);
+      pendingAnswersRef.current = {};
       setActiveExamSession(session);
-      setCurrentQuestionIndex(0);
-      setSelectedAnswers({});
-      setTimeRemainingSeconds(session.session.remaining_seconds);
+      // Forward-only: a resumed session continues at the first question not yet moved past
+      setCurrentQuestionIndex(firstOpenQuestionIndex(session));
+      setMovingNext(false);
+      setNextError(null);
+      // Resuming restores the answers autosaved earlier
+      setSelectedAnswers({ ...(session.saved_answers ?? {}) });
+      setAnswerFeedback({ ...(session.answer_feedback ?? {}) });
+      setCheckingQuestionId(null);
+      setCheckError(null);
+      setTimeRemainingSeconds(remaining);
       setExamFinished(false);
       setLastSubmitResult(null);
+      setSaveStatus("idle");
+      setAutoSubmitError(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to start exam session.";
       alert(msg);
+      // An expired attempt may just have been marked
+      fetchResults();
     } finally {
       setExamStarting(false);
     }
   }
 
+  /** Send answers waiting in pendingAnswersRef to the server; on failure keep them and retry. */
+  async function flushAnswers() {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const session = activeExamSession;
+    const entries = Object.entries(pendingAnswersRef.current);
+    if (!session || entries.length === 0) return;
+
+    pendingAnswersRef.current = {};
+    setSaveStatus("saving");
+    try {
+      await api.saveAnswers(
+        session.attempt_id,
+        entries.map(([question_id, selected_option_id]) => ({ question_id, selected_option_id }))
+      );
+      setSaveStatus(Object.keys(pendingAnswersRef.current).length > 0 ? "saving" : "saved");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Time is up or the attempt was already submitted; submission takes it from here
+        setSaveStatus("idle");
+        return;
+      }
+      // Put them back, unless a newer choice for the same question arrived in the meantime
+      pendingAnswersRef.current = { ...Object.fromEntries(entries), ...pendingAnswersRef.current };
+      setSaveStatus("retrying");
+      saveTimerRef.current = setTimeout(flushAnswers, 5000);
+    }
+  }
+
+  /**
+   * Practice tests, Review Answer button: the server marks the chosen answer and locks it, so the
+   * student learns whether they were right but can't then switch to the correct option.
+   */
+  async function handleReviewAnswer() {
+    const session = activeExamSession;
+    const questionId = currentQId;
+    const selected = selectedAnswers[questionId];
+    if (!session || !questionId || selected === undefined || selected === null) return;
+    if (answerFeedback[questionId] || checkingQuestionId) return;
+
+    const optionId = String(selected);
+    setCheckingQuestionId(questionId);
+    setCheckError(null);
+    try {
+      const res = await api.checkAnswer(session.attempt_id, questionId, optionId);
+      const feedback = res.data as AnswerFeedback;
+      setAnswerFeedback((prev) => ({ ...prev, [questionId]: feedback }));
+      // The server's answer wins if this question had already been reviewed (e.g. in another tab)
+      setSelectedAnswers((prev) => ({ ...prev, [questionId]: feedback.selected_option_id }));
+    } catch (err) {
+      // Nothing was saved: the choice stays selected so the student can review again
+      setCheckError({
+        questionId,
+        message: err instanceof Error ? err.message : "Couldn't check your answer. Please try again.",
+      });
+    } finally {
+      setCheckingQuestionId(null);
+    }
+  }
+
+  /**
+   * Next button. Exams are forward-only: the server records the question as passed (saving a
+   * live exam's answer in the same step) before the next question is shown.
+   */
+  async function handleNextQuestion() {
+    const session = activeExamSession;
+    if (!session || !currentQ || movingNext || checkingQuestionId) return;
+
+    const questionId = currentQId;
+    const selected = selectedAnswers[questionId];
+    const selectedOptionId = selected !== undefined && selected !== null ? String(selected) : null;
+
+    if (
+      selectedOptionId === null &&
+      !confirm("You haven't answered this question. Move on anyway? You won't be able to come back to it.")
+    ) {
+      return;
+    }
+
+    // The answer travels with the Next request, so it doesn't also need autosaving
+    delete pendingAnswersRef.current[questionId];
+    setMovingNext(true);
+    setNextError(null);
+    try {
+      await api.nextQuestion(session.attempt_id, questionId, selectedOptionId);
+      setCurrentQuestionIndex((i) => Math.min(i + 1, session.questions.length - 1));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Time is up or already submitted; the automatic submit takes over
+        return;
+      }
+      if (selectedOptionId !== null) pendingAnswersRef.current[questionId] = selectedOptionId;
+      setNextError(err instanceof Error ? err.message : "Couldn't move to the next question. Please try again.");
+    } finally {
+      setMovingNext(false);
+    }
+  }
+
   function handleSelectOption(questionId: string | number, optionId: string | number) {
-    if (examFinished) return;
+    if (examFinished || timeRemainingSeconds <= 0) return;
+
+    if (instantFeedback) {
+      // Practice tests: the choice can change freely until Review Answer locks it
+      if (answerFeedback[String(questionId)] || checkingQuestionId) return;
+      setCheckError(null);
+      setSelectedAnswers((prev) => ({ ...prev, [String(questionId)]: optionId }));
+      return;
+    }
+
     setSelectedAnswers((prev) => ({
       ...prev,
       [String(questionId)]: optionId,
     }));
+
+    // Autosave shortly after the choice, batching quick changes into one request
+    pendingAnswersRef.current[String(questionId)] = String(optionId);
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(flushAnswers, 600);
   }
 
-  async function handleSubmitExam() {
+  async function handleSubmitExam(auto = false) {
     if (!activeExamSession || examSubmitting) return;
     setExamSubmitting(true);
+
+    // The submission carries every answer, so nothing still waiting to autosave is lost
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    pendingAnswersRef.current = {};
 
     const answers = activeExamSession.questions.map((q) => {
       const qId = q.id || (q as Record<string, unknown>)._id;
@@ -379,14 +588,58 @@ export default function StudentDashboardPage() {
       const submitData = res.data as unknown as SubmitResult;
       setLastSubmitResult(submitData);
       setExamFinished(true);
+      setAutoSubmitError(null);
       fetchResults();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to submit exam.";
-      alert(msg);
+
+      if (err instanceof ApiError && err.status === 409) {
+        // Already submitted (e.g. an earlier request got through but its response was lost)
+        setActiveExamSession(null);
+        setActiveTab("results");
+        fetchResults();
+        alert(`${msg} You can find it under Results.`);
+      } else if (auto) {
+        // Keep retrying; the server still marks every answer that was saved before the deadline
+        setAutoSubmitError(`Time is up. Submitting your exam… (${msg} Retrying in a few seconds.)`);
+        setTimeout(() => setAutoSubmitRetry((n) => n + 1), 5000);
+      } else {
+        alert(msg);
+      }
     } finally {
       setExamSubmitting(false);
     }
   }
+
+  // Timer: recomputed from the deadline every second
+  useEffect(() => {
+    if (!activeExamSession || examFinished) return;
+
+    const timer = setInterval(() => {
+      setTimeRemainingSeconds(secondsUntil(examDeadlineRef.current));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeExamSession, examFinished]);
+
+  // Submit automatically when time is up; re-runs after a failed attempt via autoSubmitRetry
+  useEffect(() => {
+    if (!activeExamSession || examFinished || examSubmitting || timeRemainingSeconds > 0) return;
+    const timer = setTimeout(() => handleSubmitExam(true), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExamSession, timeRemainingSeconds, examFinished, autoSubmitRetry]);
+
+  // Warn before closing or reloading the tab mid-exam (answers are saved, but the timer keeps running)
+  useEffect(() => {
+    if (!examInProgress) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [examInProgress]);
 
   async function handleToggleEnrollment(courseId: string | number) {
     const idStr = String(courseId);
@@ -496,14 +749,25 @@ export default function StudentDashboardPage() {
   }
 
   function formatTime(seconds: number) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    // Whole seconds only, so fractional values from the API never show up as milliseconds
+    const total = Math.max(0, Math.floor(seconds));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
 
   /* ---------------------------------------------------------------- */
   /*  Computed Values                                                  */
   /* ---------------------------------------------------------------- */
+  // Exam runner
+  const runnerIsLive = activeExamSession?.exam.type === "live";
+  // Practice tests mark each answer on click; live exams never preview answers
+  const instantFeedback =
+    activeExamSession?.instant_feedback ?? (!!activeExamSession && activeExamSession.exam.type === "practice");
+  const currentQ = activeExamSession?.questions[currentQuestionIndex];
+  const currentQId = currentQ ? String(currentQ.id || (currentQ as Record<string, unknown>)._id) : "";
+  const currentFeedback = instantFeedback && currentQId ? answerFeedback[currentQId] : undefined;
+
   const practiceExams = exams.filter((e) => e.type === "practice");
   const liveExams = exams.filter((e) => e.type === "live");
   const enrolledCoursesList = courses.filter((c) => myCourseIds.has(c.id || c._id || ""));
@@ -627,10 +891,7 @@ export default function StudentDashboardPage() {
           {/* Clickable Student Profile Badge */}
           <div
             className="user-profile-badge clickable"
-            onClick={() => {
-              setActiveExamSession(null);
-              setActiveTab("profile");
-            }}
+            onClick={() => leaveExamView(() => setActiveTab("profile"))}
             title="Click to view and edit student profile"
           >
             <UserAvatar name={user.name} src={user.avatar_url} className="user-avatar-circle" />
@@ -689,11 +950,12 @@ export default function StudentDashboardPage() {
           <nav className="sidebar-nav">
             <button
               className={`nav-item ${activeTab === "overview" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("overview");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("overview");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="7" height="7" />
@@ -707,11 +969,12 @@ export default function StudentDashboardPage() {
             {/* STUDENT PROFILE NAVIGATION */}
             <button
               className={`nav-item ${activeTab === "profile" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("profile");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("profile");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -722,11 +985,12 @@ export default function StudentDashboardPage() {
 
             <button
               className={`nav-item ${activeTab === "courses" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("courses");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("courses");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -739,11 +1003,12 @@ export default function StudentDashboardPage() {
             {/* SEPARATE TAB 1: PRACTICE TESTS */}
             <button
               className={`nav-item ${activeTab === "practice" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("practice");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("practice");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
@@ -760,11 +1025,12 @@ export default function StudentDashboardPage() {
             {/* SEPARATE TAB 2: LIVE EXAMINATIONS */}
             <button
               className={`nav-item ${activeTab === "live" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("live");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("live");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -781,11 +1047,12 @@ export default function StudentDashboardPage() {
 
             <button
               className={`nav-item ${activeTab === "results" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("results");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("results");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="20" x2="18" y2="10" />
@@ -797,11 +1064,12 @@ export default function StudentDashboardPage() {
 
             <button
               className={`nav-item ${activeTab === "resources" ? "active" : ""}`}
-              onClick={() => {
-                setActiveExamSession(null);
-                setActiveTab("resources");
-                setMobileMenuOpen(false);
-              }}
+              onClick={() =>
+                leaveExamView(() => {
+                  setActiveTab("resources");
+                  setMobileMenuOpen(false);
+                })
+              }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -870,14 +1138,12 @@ export default function StudentDashboardPage() {
           {/* ========================================================= */}
           {/* EXAM RUNNER ENGINE VIEW                                   */}
           {/* ========================================================= */}
-          {activeExamSession && !examFinished && (() => {
-            const isLive = activeExamSession.exam.type === "live";
-            return (
-              <div className={`exam-runner-card ${isLive ? "live-runner" : ""}`}>
+          {activeExamSession && !examFinished && (
+              <div className={`exam-runner-card ${runnerIsLive ? "live-runner" : ""}`}>
                 <div className="exam-runner-header">
                   <div>
-                    <span className={`exam-runner-badge ${isLive ? "live-runner-badge" : ""}`}>
-                      {isLive ? "🔴 LIVE EXAMINATION ROOM" : "PRACTICE CBT DRILL · SELF-PACED"}
+                    <span className={`exam-runner-badge ${runnerIsLive ? "live-runner-badge" : ""}`}>
+                      {runnerIsLive ? "🔴 LIVE EXAMINATION ROOM" : "PRACTICE CBT DRILL · SELF-PACED"}
                     </span>
                     <h2>{activeExamSession.exam.title}</h2>
                     {activeExamSession.exam.course && (
@@ -893,6 +1159,19 @@ export default function StudentDashboardPage() {
                   </div>
                 </div>
 
+                {/* Autosave / time-up status */}
+                {autoSubmitError ? (
+                  <p className="exam-save-status retrying" role="status">{autoSubmitError}</p>
+                ) : saveStatus !== "idle" ? (
+                  <p className={`exam-save-status ${saveStatus}`} role="status">
+                    {saveStatus === "saving"
+                      ? "Saving your answer…"
+                      : saveStatus === "saved"
+                      ? "✓ All answers saved"
+                      : "Connection problem: your answers will be saved when you're back online."}
+                  </p>
+                ) : null}
+
                 {/* Progress and Question Navigator */}
                 <div className="exam-navigator-bar">
                   <span className="q-progress-text">
@@ -903,26 +1182,25 @@ export default function StudentDashboardPage() {
                       const qId = String(q.id || (q as Record<string, unknown>)._id);
                       const isAnswered = selectedAnswers[qId] !== undefined;
                       const isCurrent = idx === currentQuestionIndex;
+                      // Practice tests colour each marked question green or red
+                      const dotFeedback = answerFeedback[qId];
+                      const dotResult = dotFeedback ? (dotFeedback.is_correct ? "correct" : "incorrect") : "";
+                      // Progress only, not navigation: exams are forward-only
                       return (
-                        <button
+                        <span
                           key={qId}
-                          className={`q-dot-btn ${isCurrent ? "current" : ""} ${isAnswered ? "answered" : ""}`}
-                          onClick={() => setCurrentQuestionIndex(idx)}
+                          className={`q-dot-btn ${isCurrent ? "current" : ""} ${isAnswered ? "answered" : ""} ${dotResult}`}
+                          aria-current={isCurrent ? "step" : undefined}
                         >
                           {idx + 1}
-                        </button>
+                        </span>
                       );
                     })}
                   </div>
                 </div>
 
                 {/* Current Question Block */}
-                {activeExamSession.questions[currentQuestionIndex] && (() => {
-                  const currentQ = activeExamSession.questions[currentQuestionIndex];
-                  const currentQId = String(currentQ.id || (currentQ as Record<string, unknown>)._id);
-                  const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
-
-                  return (
+                {currentQ && (
                     <div className="exam-question-body">
                       <p className="question-text">
                         {currentQ.question_text}
@@ -931,55 +1209,94 @@ export default function StudentDashboardPage() {
                         {currentQ.options.map((opt, optIdx) => {
                           const optId = opt.id || (opt as Record<string, unknown>)._id;
                           const isSelected = String(selectedAnswers[currentQId]) === String(optId);
+                          // Once a practice answer is marked: correct option green, wrong pick red, the rest faded
+                          let optionState = isSelected ? "selected" : "";
+                          if (currentFeedback) {
+                            if (String(optId) === currentFeedback.correct_option_id) optionState = "correct";
+                            else if (String(optId) === currentFeedback.selected_option_id) optionState = "incorrect";
+                            else optionState = "dimmed";
+                          }
                           return (
                             <button
                               key={String(optId)}
-                              className={`option-btn ${isSelected ? "selected" : ""}`}
+                              className={`option-btn ${optionState}`}
                               onClick={() => handleSelectOption(currentQId, optId as string | number)}
+                              disabled={!!currentFeedback || checkingQuestionId === currentQId}
                             >
-                              <span className="option-letter">{opt.option_letter || letters[optIdx]}</span>
+                              <span className="option-letter">{opt.option_letter || OPTION_LETTERS[optIdx]}</span>
                               <span className="option-text">{opt.option_text}</span>
                             </button>
                           );
                         })}
                       </div>
+
+                      {/* Practice tests only: instant result for this question */}
+                      {instantFeedback && checkingQuestionId === currentQId && (
+                        <p className="answer-feedback checking" role="status">Checking your answer…</p>
+                      )}
+                      {currentFeedback && (
+                        <div
+                          className={`answer-feedback ${currentFeedback.is_correct ? "correct" : "incorrect"}`}
+                          role="status"
+                        >
+                          <strong>
+                            {currentFeedback.is_correct
+                              ? "✓ Correct!"
+                              : currentFeedback.correct_option_letter
+                              ? `✗ Not quite. The correct answer is ${currentFeedback.correct_option_letter}.`
+                              : "✗ Not quite."}
+                          </strong>
+                          {currentFeedback.explanation && <p>{currentFeedback.explanation}</p>}
+                        </div>
+                      )}
+                      {!currentFeedback && checkError?.questionId === currentQId && (
+                        <p className="answer-feedback incorrect" role="alert">{checkError.message}</p>
+                      )}
                     </div>
-                  );
-                })()}
+                )}
 
                 {/* Footer Controls */}
+                {nextError && (
+                  <p className="answer-feedback incorrect" role="alert">{nextError}</p>
+                )}
+                {/* No Previous button: exams are forward-only */}
                 <div className="exam-runner-footer">
-                  <button
-                    className="exam-nav-btn"
-                    disabled={currentQuestionIndex === 0}
-                    onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
-                  >
-                    Previous
-                  </button>
-
                   <div className="exam-footer-right">
-                    {currentQuestionIndex < activeExamSession.questions.length - 1 ? (
+                    {instantFeedback && !currentFeedback ? (
+                      // Practice tests: the answer is reviewed before Next appears
                       <button
                         className="exam-nav-btn primary"
-                        onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+                        onClick={handleReviewAnswer}
+                        disabled={
+                          selectedAnswers[currentQId] === undefined ||
+                          selectedAnswers[currentQId] === null ||
+                          checkingQuestionId === currentQId
+                        }
                       >
-                        Next Question
+                        {checkingQuestionId === currentQId ? "Reviewing…" : "Review Answer"}
+                      </button>
+                    ) : currentQuestionIndex < activeExamSession.questions.length - 1 ? (
+                      <button
+                        className="exam-nav-btn primary"
+                        onClick={handleNextQuestion}
+                        disabled={movingNext || checkingQuestionId === currentQId}
+                      >
+                        {movingNext ? "Moving on…" : "Next Question"}
                       </button>
                     ) : (
                       <button
                         className="exam-submit-btn"
-                        onClick={handleSubmitExam}
+                        onClick={() => handleSubmitExam()}
                         disabled={examSubmitting}
-                        style={{ background: isLive ? "#b91c1c" : "var(--green)" }}
+                        style={{ background: runnerIsLive ? "#b91c1c" : "var(--green)" }}
                       >
-                        {examSubmitting ? "Submitting..." : isLive ? "Submit Official Exam ✓" : "Finish Practice Drill ✓"}
+                        {examSubmitting ? "Submitting..." : runnerIsLive ? "Submit Official Exam ✓" : "Finish Practice Drill ✓"}
                       </button>
                     )}
                   </div>
                 </div>
               </div>
-            );
-          })()}
+          )}
 
           {/* ========================================================= */}
           {/* EXAM SCORE RESULTS SUMMARY                                 */}
@@ -992,6 +1309,11 @@ export default function StudentDashboardPage() {
                 </span>
                 <h2>Exam Complete: Automated Grading Report</h2>
                 <p>{lastSubmitResult.exam_title}</p>
+                {lastSubmitResult.late && (
+                  <p className="exam-save-status retrying">
+                    Time was up when this was submitted, so only the answers saved before the deadline were marked.
+                  </p>
+                )}
               </div>
 
               <div className="score-hero-block">
@@ -1212,8 +1534,8 @@ export default function StudentDashboardPage() {
                         </p>
                       </div>
                     ) : (
-                      results.slice(0, 4).map((r) => {
-                        const rId = String(r.id || r._id || Math.random());
+                      results.slice(0, 4).map((r, idx) => {
+                        const rId = String(r.id || r._id || `result-${idx}`);
                         return (
                           <div className="course-progress-item" key={rId}>
                             <div className="course-progress-meta">
@@ -1660,8 +1982,8 @@ export default function StudentDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {results.map((res) => {
-                        const rId = String(res.id || res._id || Math.random());
+                      {results.map((res, idx) => {
+                        const rId = String(res.id || res._id || `result-${idx}`);
                         const dateStr = res.submitted_at
                           ? new Date(res.submitted_at).toLocaleDateString()
                           : "—";
@@ -1756,16 +2078,32 @@ export default function StudentDashboardPage() {
             </div>
 
             <div className="modal-body">
+              {reviewResult.answers_revealed === false && (
+                <div className="review-explanation-box">
+                  <strong>Answer key not yet available</strong>
+                  <p>
+                    Which answers you got right, the correct answers and tutor explanations for
+                    this live exam will be released
+                    {reviewResult.answers_available_at
+                      ? ` after it closes on ${new Date(reviewResult.answers_available_at).toLocaleString()}.`
+                      : " after the exam closes."}
+                  </p>
+                </div>
+              )}
               <div className="review-questions-list">
-                {reviewResult.breakdown.map((item, idx) => (
+                {reviewResult.breakdown.map((item, idx) => {
+                  // Live exams send is_correct: null until the answer key is released
+                  const graded = item.is_correct !== null && item.is_correct !== undefined;
+                  const evalClass = graded ? (item.is_correct ? "correct" : "incorrect") : "pending";
+                  return (
                   <div
                     key={idx}
-                    className={`review-question-card ${item.is_correct ? "correct" : "incorrect"}`}
+                    className={`review-question-card ${graded ? evalClass : ""}`}
                   >
                     <div className="review-q-top">
                       <span className="q-index-badge">Question {idx + 1}</span>
-                      <span className={`eval-badge ${item.is_correct ? "correct" : "incorrect"}`}>
-                        {item.is_correct ? "✓ Correct" : "✗ Incorrect"}
+                      <span className={`eval-badge ${evalClass}`}>
+                        {graded ? (item.is_correct ? "✓ Correct" : "✗ Incorrect") : "Answer recorded"}
                       </span>
                     </div>
 
@@ -1774,13 +2112,13 @@ export default function StudentDashboardPage() {
                     <div className="review-answer-comparison">
                       <div>
                         <span className="ans-label">Your Answer:</span>
-                        <span className={`ans-val ${item.is_correct ? "good" : "bad"}`}>
+                        <span className={`ans-val ${graded ? (item.is_correct ? "good" : "bad") : ""}`}>
                           {item.selected_option
                             ? `${item.selected_option.letter ? item.selected_option.letter + ". " : ""}${item.selected_option.text}`
                             : "Unanswered"}
                         </span>
                       </div>
-                      {!item.is_correct && item.correct_option && (
+                      {graded && !item.is_correct && item.correct_option && (
                         <div>
                           <span className="ans-label">Correct Answer:</span>
                           <span className="ans-val correct-key">
@@ -1798,7 +2136,8 @@ export default function StudentDashboardPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

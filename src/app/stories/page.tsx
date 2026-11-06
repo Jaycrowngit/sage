@@ -17,6 +17,8 @@ type Testimonial = {
   role: string;
   location: string;
   image: string;
+  /** CSS object-position for the round crop, when the face isn't near the top of the photo */
+  imagePosition?: string;
   subject: string;
   quote: string;
   achievement: string;
@@ -25,41 +27,45 @@ type Testimonial = {
 
 const otherTestimonials: Testimonial[] = [
   {
-    id: "1",
-    name: "Amara Chen",
-    role: "Literature & Critical Analysis Student",
-    location: "Toronto, Canada",
-    image: "/students/student-1.jpg",
-    subject: "Literature & Text Analysis",
-    quote:
-      "Before studying with SAGE, breaking down unseen poetry and understanding complex literary devices felt overwhelming. Mr. Giwa taught me how to dissect every line with confidence and precision. My essay grades improved dramatically within two months.",
-    achievement: "Top 5% in Advanced Literature Examinations",
-    tags: ["Literature", "Text Analysis", "Literary Devices"],
-  },
-  {
     id: "2",
-    name: "Liam O'Connor",
-    role: "Civic & Political Systems Student",
-    location: "Dublin, Ireland",
-    image: "/students/student-2.jpg",
-    subject: "Government & Political Systems",
+    name: "Ola Tofunmi Comfort",
+    role: "Law Student",
+    location: "Obafemi Awolowo University (OAU)",
+    // Head-and-shoulders crop of tofunmi_comfort.jpeg (a full-length photo)
+    image: "/students/tofunmi_comfort_avatar.jpeg",
+    subject: "Exam Preparation",
     quote:
-      "The lessons on political institutions, historical eras, and the philosophies behind modern governance completely shifted how I approach the subject. SAGE makes abstract ideas feel tangible and deeply relevant to real-world civic life.",
-    achievement: "Grade A in Political Studies & Global Governance",
-    tags: ["Government", "Political Systems", "Historical Events"],
+      "Teachers who lecture without caring whether students understand bothered me a lot during my exam preparation. Then I came across SAGE Educational Session, and I never regretted joining: the teachings are explicitly explained, and topics are broken down bit by bit for full understanding. SAGE made my preparation stress-free, and I can say with my full chest today that I've gained admission into OAU to study Law. I recommend SAGE to every student who wants good grades without a brain drain while reading. It's a ten over ten!",
+    achievement: "Admitted to study Law at OAU · Rated 10/10",
+    tags: ["Admission Success", "Law", "OAU"],
   },
   {
     id: "3",
-    name: "Zainab Al-Mansoor",
-    role: "Literature & Exam Candidate",
-    location: "Dubai, United Arab Emirates",
-    image: "/students/student-3.jpg",
-    subject: "Literature & Exam Practice",
+    name: "Kelvin Beauty Ojochenemi",
+    role: "Law Student, Faculty of Law",
+    location: "Obafemi Awolowo University (OAU)",
+    // Head-and-shoulders crop of beauty_ojoch.jpeg (a full-length photo)
+    image: "/students/beauty_ojoch_avatar.jpeg",
+    subject: "Exam Preparation",
     quote:
-      "The exam practice sessions are second to none. Timed essay drills and line-by-line feedback on dramatic texts helped me master question structure and thematic arguments under real examination pressure.",
-    achievement: "Exam score improved by 28 percentile points",
-    tags: ["Exam Practice", "Drama & Prose", "Timed Drills"],
+      "Please allow me to express my profound gratitude for your exceptional dedication and mentorship during my time in your class. Your commitment to teaching greatly influenced my academic development. I came across SAGE Educational Session when I was in SSS3, and to be honest, it was impactful and encouraging. A milestone I don't believe I would have achieved without the knowledge and inspiration gained from you.",
+    achievement: "Admitted to the Faculty of Law, OAU",
+    tags: ["Admission Success", "Law", "OAU"],
   },
+  {
+    id: "1",
+    name: "Oyinkansola Praise",
+    role: "Philosophy Student",
+    location: "University of Ibadan (UI)",
+    image: "/students/Oyinkansola_praise.jpeg",
+    imagePosition: "center 75%",
+    subject: "Literature",
+    quote:
+      "He doesn't just teach literature, he makes you feel it: every character, theme, every hidden meaning, until everything clicks.",
+    achievement: "Rated 5/5: An Exceptional Tutor",
+    tags: ["Literature", "Philosophy", "University of Ibadan"],
+  },
+  /* Hidden for now; uncomment to show these cards again
   {
     id: "4",
     name: "Sofia Rossi",
@@ -84,6 +90,7 @@ const otherTestimonials: Testimonial[] = [
     achievement: "Excellence Award in Humanities and Civic Studies",
     tags: ["Exam Practice", "Literature", "Government"],
   },
+  */
 ];
 
 export default function StoriesPage() {
@@ -128,7 +135,30 @@ export default function StoriesPage() {
 
           <div className="spotlight-stack">
             {/* Story 1: Samuel Oluwabusayo Deborah */}
-            <div className="spotlight-card">
+            <article className="spotlight-card">
+              <aside className="spotlight-profile">
+                <div className="spotlight-photo">
+                  <Image
+                    src="/students/Samuel_Oluwabusayo.jpeg"
+                    alt="Samuel Oluwabusayo Deborah"
+                    fill
+                    sizes="(max-width: 900px) 72px, 280px"
+                    className="spotlight-photo-img"
+                  />
+                </div>
+                <div className="spotlight-profile-text">
+                  <h3>Samuel Oluwabusayo Deborah</h3>
+                  <span>Political Science (Faculty of Education)</span>
+                  <span className="spotlight-school">University of Ibadan (UI)</span>
+                </div>
+                <div className="spotlight-tags">
+                  <span className="story-tag">Political Science</span>
+                  <span className="story-tag">Faculty of Education</span>
+                  <span className="story-tag">10/10 Rated</span>
+                </div>
+              </aside>
+
+              <div className="spotlight-content">
               <div className="spotlight-badge-row">
                 <span className="spotlight-badge">★ VERIFIED ADMISSION SUCCESS STORY</span>
                 <span className="spotlight-rating">Rating: 10/10 ⭐⭐⭐⭐⭐</span>
@@ -177,32 +207,28 @@ export default function StoriesPage() {
                   ~ Samuel Oluwabusayo Deborah
                 </p>
               </div>
-
-              <div className="spotlight-author-footer">
-                <div className="spotlight-author-avatar">
-                  <Image
-                    src="/students/Samuel_Oluwabusayo.jpeg"
-                    alt="Samuel Oluwabusayo Deborah"
-                    width={72}
-                    height={72}
-                    className="story-avatar"
-                  />
-                </div>
-                <div className="spotlight-author-details">
-                  <h3>Samuel Oluwabusayo Deborah</h3>
-                  <span>Undergraduate Student · Political Science (Faculty of Education), University of Ibadan (UI)</span>
-                  <div className="spotlight-tags">
-                    <span className="story-tag">University of Ibadan (UI)</span>
-                    <span className="story-tag">Political Science</span>
-                    <span className="story-tag">Faculty of Education</span>
-                    <span className="story-tag">10/10 Rated</span>
-                  </div>
-                </div>
               </div>
-            </div>
+            </article>
 
             {/* Story 2: Ajayi Oreoluwa */}
-            <div className="spotlight-card">
+            <article className="spotlight-card">
+              <aside className="spotlight-profile">
+                {/* Initials until a real photo of Oreoluwa is added (Ajayi_Oreoluwa.jpeg is the stock image student-1.jpg) */}
+                <div className="spotlight-photo spotlight-photo-initials" aria-hidden="true">
+                  AO
+                </div>
+                <div className="spotlight-profile-text">
+                  <h3>Ajayi Oreoluwa</h3>
+                  <span>Sociology</span>
+                  <span className="spotlight-school">Department of Arts &amp; Social Sciences</span>
+                </div>
+                <div className="spotlight-tags">
+                  <span className="story-tag">Admission Success</span>
+                  <span className="story-tag">100% Recommended</span>
+                </div>
+              </aside>
+
+              <div className="spotlight-content">
               <div className="spotlight-badge-row">
                 <span className="spotlight-badge">★ VERIFIED ADMISSION SUCCESS STORY</span>
                 <span className="spotlight-rating">100% RECOMMENDED ⭐⭐⭐⭐⭐</span>
@@ -235,33 +261,12 @@ export default function StoriesPage() {
                   ~ Ajayi Oreoluwa
                 </p>
               </div>
-
-              <div className="spotlight-author-footer">
-                <div className="spotlight-author-avatar">
-                  <Image
-                    src="/students/Ajayi_Oreoluwa.jpeg"
-                    alt="Ajayi Oreoluwa"
-                    width={72}
-                    height={72}
-                    className="story-avatar"
-                  />
-                </div>
-                <div className="spotlight-author-details">
-                  <h3>Ajayi Oreoluwa</h3>
-                  <span>Undergraduate Student · Sociology, Department of Arts & Social Sciences</span>
-                  <div className="spotlight-tags">
-                    <span className="story-tag">Sociology</span>
-                    <span className="story-tag">Arts & Social Sciences</span>
-                    <span className="story-tag">Admission Success</span>
-                    <span className="story-tag">100% Recommended</span>
-                  </div>
-                </div>
               </div>
-            </div>
+            </article>
           </div>
         </section>
 
-        {/* MORE STUDENT EXPERIENCES (COMMENTED OUT AS REQUESTED)
+        {/* MORE STUDENT EXPERIENCES */}
         <section className="interior-section stories-grid-section section-wrap">
           <div className="section-heading" style={{ marginBottom: "24px" }}>
             <div>
@@ -281,6 +286,7 @@ export default function StoriesPage() {
                       width={64}
                       height={64}
                       className="story-avatar"
+                      style={item.imagePosition ? { objectPosition: item.imagePosition } : undefined}
                     />
                   </div>
                   <div className="story-author-info">
@@ -318,7 +324,6 @@ export default function StoriesPage() {
             ))}
           </div>
         </section>
-        */}
 
         <section className="stories-cta-section">
           <div className="stories-cta-card">
